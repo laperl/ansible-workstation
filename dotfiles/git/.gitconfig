@@ -1,0 +1,10 @@
+[user]
+    name = Pops
+    email = jaume@pops.com
+[core]
+    editor = vim
+    excludesfile = ~/.gitignore_global
+[init]
+    defaultBranch = main
+[push]
+    default = current

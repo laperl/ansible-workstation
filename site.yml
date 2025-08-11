@@ -1,0 +1,12 @@
+- name: PopOS Workstation
+  hosts: all
+  become: true
+  vars_files:
+    - secrets/vars.sops.yaml      # cifrado con SOPS (opcional si vacío)
+  roles:
+    - { role: base,       tags: ['base'] }
+    - { role: devtools,   tags: ['dev'] }
+    - { role: containers, tags: ['containers'] }
+    - { role: gaming,     when: install_gaming, tags: ['gaming'] }
+    - { role: ai,         when: install_ai,     tags: ['ai'] }
+    - { role: security,   tags: ['security'] }

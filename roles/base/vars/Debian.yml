@@ -1,0 +1,14 @@
+base_packages:
+  - build-essential
+  - git
+  - curl
+  - wget
+  - unzip
+  - stow
+  - htop
+  - neofetch
+  - ufw
+  - fail2ban
+  - python3-pip
+  - python3-venv
+  - flatpak

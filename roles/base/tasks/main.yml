@@ -1,0 +1,34 @@
+- name: Cargar vars según familia de SO
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_os_family }}.yml"
+
+- name: Actualizar caché de paquetes
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+  tags: ['apt']
+
+- name: Instalar paquetes base (agnóstico cuando se pueda)
+  ansible.builtin.package:
+    name: "{{ base_packages }}"
+    state: present
+  tags: ['apt']
+
+- name: Asegurar Flathub
+  community.general.flatpak_remote:
+    name: flathub
+    state: present
+    flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
+  tags: ['flatpak']
+
+- name: Desplegar dotfiles con Stow al $HOME
+  vars:
+    target_home: "{{ lookup('env','HOME') }}"
+  ansible.builtin.command:
+    argv: ["stow", "-t", "{{ target_home }}", "{{ item }}"]
+    chdir: "{{ playbook_dir }}/dotfiles"
+  loop: "{{ dotfiles_packages }}"
+  changed_when: false
+  tags: ['dotfiles']

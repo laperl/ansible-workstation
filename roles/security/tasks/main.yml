@@ -1,0 +1,28 @@
+- name: UFW por defecto deny incoming, allow outgoing
+  community.general.ufw:
+    state: enabled
+    policy: deny
+
+- name: Permitir SSH
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: Fail2ban
+  ansible.builtin.package:
+    name: fail2ban
+    state: present
+
+- name: Endurecer sshd: deshabilitar contraseñas
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    create: no
+  notify: Restart sshd
+
+- name: Actualizaciones automáticas (Debian/Ubuntu)
+  when: ansible_os_family == "Debian"
+  ansible.builtin.package:
+    name: unattended-upgrades
+    state: present

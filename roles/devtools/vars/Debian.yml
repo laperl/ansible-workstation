@@ -1,0 +1,7 @@
+vim_pkg: vim
+tmux_pkg: tmux
+dev_packages:
+  - "{{ vim_pkg }}"
+  - "{{ tmux_pkg }}"
+  - git
+  - pipx

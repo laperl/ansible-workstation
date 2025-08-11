@@ -1,0 +1,53 @@
+- name: Cargar vars según familia de SO
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_os_family }}.yml"
+
+- name: Instalar paquetes de desarrollo
+  ansible.builtin.package:
+    name: "{{ dev_packages }}"
+    state: present
+  tags: ['dev']
+
+- name: Asegurar pipx en PATH del usuario
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env','HOME') }}/.bashrc"
+    line: 'export PATH="$PATH:$HOME/.local/bin"'
+    insertafter: EOF
+  tags: ['dev']
+
+- name: Instalar ansible-lint via pipx (para CI local)
+  community.general.pipx:
+    name: ansible-lint
+    state: present
+  tags: ['dev']
+
+# --- tmux + TPM ---
+- name: Crear carpeta de plugins de tmux
+  ansible.builtin.file:
+    path: "{{ lookup('env','HOME') }}/.tmux/plugins"
+    state: directory
+    mode: '0755'
+  tags: ['dev','tmux']
+
+- name: Instalar TPM (Tmux Plugin Manager)
+  ansible.builtin.git:
+    repo: https://github.com/tmux-plugins/tpm
+    dest: "{{ lookup('env','HOME') }}/.tmux/plugins/tpm"
+    version: master
+    update: yes
+  tags: ['dev','tmux']
+
+- name: Mensaje para instalar plugins (manual, seguro)
+  ansible.builtin.debug:
+    msg: "Abre tmux y pulsa Prefix + I para instalar plugins via TPM."
+  tags: ['dev','tmux']
+
+# --- Editor por defecto ---
+- name: Exportar EDITOR por defecto si no existe
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env','HOME') }}/.bashrc"
+    regexp: '^export EDITOR='
+    line: 'export EDITOR="{{ default_editor }}"'
+    insertafter: EOF
+  tags: ['dev']

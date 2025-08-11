@@ -1,0 +1,9 @@
+default_editor: "vim"           # opciones: vim | nvim | vscodium
+container_runtime: "podman"     # opciones: podman | docker
+install_gaming: true
+install_ai: true
+dotfiles_packages:
+  - bash
+  - git
+  - vim
+  - tmux

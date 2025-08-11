@@ -1,0 +1,36 @@
+- name: Cargar vars según familia de SO
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_os_family }}.yml"
+
+- name: Instalar Podman (rootless)
+  when: container_runtime == "podman"
+  ansible.builtin.package:
+    name: "{{ podman_packages }}"
+    state: present
+  tags: ['containers']
+
+- name: Instalar Docker
+  when: container_runtime == "docker"
+  ansible.builtin.package:
+    name: "{{ docker_packages }}"
+    state: present
+  tags: ['containers']
+
+- name: Añadir usuario a grupo docker (si procede)
+  when: container_runtime == "docker"
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    groups: docker
+    append: true
+  tags: ['containers']
+
+- name: NVIDIA Container Toolkit (GPU opcional)
+  ansible.builtin.package:
+    name: "{{ nvidia_toolkit_packages }}"
+    state: present
+  tags: ['containers','ai']
+
+
+# Nota GPU con Podman: si usas GPU, al ejecutar contenedores añade --hooks-dir=/usr/share/containers/oci/hooks.d/ cuando sea necesario. 
+# Mantengo esto simple y estable.

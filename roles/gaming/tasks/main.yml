@@ -1,0 +1,23 @@
+- name: Steam (Flatpak)
+  community.general.flatpak:
+    name: com.valvesoftware.Steam
+    state: present
+  tags: ['gaming']
+
+- name: ProtonUp-Qt (Proton-GE)
+  community.general.flatpak:
+    name: net.davidotek.pupgui2
+    state: present
+  tags: ['gaming']
+
+- name: Lutris
+  community.general.flatpak:
+    name: net.lutris.Lutris
+    state: present
+  tags: ['gaming']
+
+- name: Gamemode
+  ansible.builtin.package:
+    name: gamemode
+    state: present
+  tags: ['gaming']

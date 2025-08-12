@@ -1,7 +1,10 @@
+---
+
 collections:
   - name: community.general
-  - name: ansible.posix
+    version: ">=8.6.0,<9.0.0"
   - name: community.docker
+    version: ">=3.12.0,<4.0.0"
+  - name: ansible.posix
   - name: containers.podman
   - name: community.sops        # Para decrypt en Ansible
-

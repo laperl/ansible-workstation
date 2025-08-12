@@ -1,27 +1,23 @@
-help:           ## Mostrar ayuda de comandos
-	@grep -E '^[a-zA-Z_-]+:.*?## ' Makefile | sed 's/:.*##/: /'
+.PHONY: help
+help: ## Muestra esta ayuda
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+	awk 'BEGIN {FS=":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-bootstrap:      ## Instalar collections y ejecutar playbook local
-	ansible-galaxy collection install -r requirements.yml
-	ansible-playbook -i inventories/local/hosts.yml site.yml -K
-
-base:           ## Solo rol base
+base: ## Paquetes base + dotfiles
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t base
 
-dev:            ## Devtools (vim, tmux+TPM, pipx, ansible-lint)
+dev: ## Neovim/Vim, VSCodium, pipx, tmux
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t dev
 
-containers:     ## Contenedores (Podman por defecto)
+containers: ## Podman/Docker (+ NVIDIA si procede)
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t containers
 
-gaming:         ## Steam/Proton/Lutris/Gamemode
+gaming: ## Steam/Proton/Lutris/Gamemode
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t gaming
 
-ai:             ## Tooling IA mínimo (CUDA toolkit en Debian/Ubuntu)
+ai: ## Tooling IA mínimo NVIDIA
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t ai
 
-security:       ## UFW, fail2ban, endurecimiento SSH
+security: ## ufw/fail2ban/sshd endurecido
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t security
 
-lint:           ## Lint de Ansible (local)
-	ansible-lint

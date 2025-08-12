@@ -119,3 +119,8 @@ export MI_REPO_GIT="$HOME/Documents/repo-github"
 
 # Created by `pipx` on 2025-08-12 10:19:16
 export PATH="$HOME/.local/bin:$PATH"
+# BEGIN POPOS-EDITOR
+export PATH="$HOME/.local/bin:$PATH"
+export EDITOR="nvim"
+export VISUAL="$EDITOR"
+# END POPOS-EDITOR

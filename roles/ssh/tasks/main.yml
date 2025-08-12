@@ -1,58 +1,69 @@
-- name: Paquetes necesarios para SSH y agente
+- name: "Paquetes necesarios para SSH y agente"
   become: true
   ansible.builtin.package:
-    name: [openssh-client, keychain, sops]
+    name:
+      - openssh-client
+      - keychain
+      - sops
     state: present
   tags: ['ssh']
 
-- name: Asegurar carpeta ~/.ssh con permisos 700
-  become: false
+- name: "Asegurar carpeta ~/.ssh con permisos 700"
+  become: true
+  become_user: "{{ workstation_user }}"
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.ssh"
+    path: "{{ workstation_home }}/.ssh"
     state: directory
     mode: '0700'
   tags: ['ssh']
 
-- name: Desplegar clave privada desde SOPS (600)
-  become: false
+- name: "Desplegar clave privada desde SOPS (600)"
+  become: true
+  become_user: "{{ workstation_user }}"
   no_log: true
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.ssh/id_ed25519"
+    dest: "{{ workstation_home }}/.ssh/id_ed25519"
     content: "{{ lookup('community.sops.sops', 'secrets/ssh/id_ed25519.sops') }}"
     mode: '0600'
   tags: ['ssh']
 
-- name: Desplegar clave pública (644)
-  become: false
+- name: "Desplegar clave pública (644)"
+  become: true
+  become_user: "{{ workstation_user }}"
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.ssh/id_ed25519.pub"
+    dest: "{{ workstation_home }}/.ssh/id_ed25519.pub"
     content: "{{ lookup('file', 'secrets/ssh/id_ed25519.pub') }}"
     mode: '0644'
   tags: ['ssh']
 
-- name: Añadir github.com a known_hosts (ed25519)
-  become: false
+- name: "Añadir github.com a known_hosts (ed25519)"
+  become: true
+  become_user: "{{ workstation_user }}"
   ansible.builtin.known_hosts:
-    path: "{{ ansible_env.HOME }}/.ssh/known_hosts"
+    path: "{{ workstation_home }}/.ssh/known_hosts"
     name: github.com
     key: "{{ lookup('pipe', 'ssh-keyscan -t ed25519 github.com 2>/dev/null') }}"
+    state: present
   tags: ['ssh']
 
-- name: Plantilla de ~/.ssh/config
-  become: false
+- name: "Plantilla de ~/.ssh/config"
+  become: true
+  become_user: "{{ workstation_user }}"
   ansible.builtin.template:
     src: ssh_config.j2
-    dest: "{{ ansible_env.HOME }}/.ssh/config"
+    dest: "{{ workstation_home }}/.ssh/config"
     mode: '0600'
   tags: ['ssh']
 
-- name: Habilitar carga automática con keychain (ssh-agent) en .bashrc
-  become: false
+- name: "Habilitar carga automática con keychain (ssh-agent) en .bashrc"
+  become: true
+  become_user: "{{ workstation_user }}"
   ansible.builtin.blockinfile:
-    path: "{{ ansible_env.HOME }}/.bashrc"
+    path: "{{ workstation_home }}/.bashrc"
     marker: "# {mark} POPOS-SSH-AGENT"
     block: |
       if command -v keychain >/dev/null 2>&1; then
         eval "$(keychain --quiet --agents ssh --eval --timeout 43200 ~/.ssh/id_ed25519)"
       fi
   tags: ['ssh']
+

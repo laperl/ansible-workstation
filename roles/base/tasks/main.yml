@@ -1,68 +1,88 @@
-- name: Cargar vars según familia de SO
+# roles/base/tasks/main.yml
+
+# 1) Carga variables de paquetes según la familia del SO (ej. Debian.yml)
+- name: "Cargar vars según familia de SO"
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
     - "{{ ansible_os_family }}.yml"
 
-- name: Actualizar caché de paquetes
+# 2) APT: update caché solo en Debian/Ubuntu
+- name: "Actualizar caché de paquetes"
+  when: ansible_os_family == "Debian"
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
-  when: ansible_os_family == "Debian"
   tags: ['apt']
 
-- name: Instalar paquetes base (agnóstico cuando se pueda)
+# 3) Instalar paquetes base (uso de 'package' para ser agnóstico)
+- name: "Instalar paquetes base (agnóstico cuando se pueda)"
   ansible.builtin.package:
     name: "{{ base_packages }}"
     state: present
   tags: ['apt']
 
-- name: Asegurar Flathub
+# 4) Flathub remoto (idempotente)
+- name: "Asegurar Flathub"
   community.general.flatpak_remote:
     name: flathub
     state: present
     flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
   tags: ['flatpak']
 
-- name: Detectar soporte de --adopt en stow
+# 5) Detectar si 'stow' soporta --adopt (para migrar ficheros existentes)
+- name: "Detectar soporte de --adopt en stow"
+  become: false
   ansible.builtin.command: stow --help
   register: stow_help
   changed_when: false
   failed_when: false
   tags: ['dotfiles']
 
-- name: Desplegar dotfiles con Stow (con adopt si está disponible)
+# 6) Desplegar dotfiles con Stow
+#    - Si hay --adopt, mueve los archivos existentes al paquete y crea symlinks.
+#    - Si no, no fallamos aquí; el fallback manejará conflictos.
+- name: "Desplegar dotfiles con Stow (con --adopt si está disponible)"
+  become: false
   vars:
-    target_home: "{{ lookup('env','HOME') }}"
+    target_home: "{{ workstation_home }}"
     has_adopt: "{{ stow_help.stdout is search('--adopt') }}"
   ansible.builtin.command:
     argv: >-
       {{ ['stow'] +
-          (has_adopt | bool | ternary(['--adopt'], [])) +
-          ['-t', target_home, item] }}
+         (has_adopt | bool | ternary(['--adopt'], [])) +
+         ['-t', target_home, item] }}
     chdir: "{{ playbook_dir }}/dotfiles"
   loop: "{{ dotfiles_packages }}"
-  # Cuando no hay --adopt, evitamos fallo por conflictos:
   register: stow_run
-  failed_when: >
-    (stow_run.rc != 0) and (stow_run.stderr is not search('would cause conflicts'))
+  # No fallar aquí incluso si hay conflictos (cuando no hay --adopt)
+  failed_when: false
   changed_when: false
   tags: ['dotfiles']
 
+# 7) Fallback cuando NO hay --adopt:
+#    - Hace backup de los archivos reales que chocarían (no symlinks)
+#    - Reintenta Stow sin conflictos
 - name: "Fallback sin --adopt: backup de conflictos y reintento"
   when: stow_help.stdout is not search('--adopt')
+  become: false
   vars:
-    target_home: "{{ lookup('env','HOME') }}"
+    target_home: "{{ workstation_home }}"
   block:
-    - name: "Mover a backup archivos en conflicto de cada paquete"
+
+    # 7.1) Mover a backup los ficheros en conflicto por cada paquete
+    #      Nota: calculamos la ruta destino quitando el prefijo del paquete (pkg/)
+    - name: Mover a backup archivos en conflicto de cada paquete"
       ansible.builtin.shell: |
         set -euo pipefail
         pkg="{{ item }}"
         cd "{{ playbook_dir }}/dotfiles"
         TS="$(date +%Y%m%d-%H%M%S)"
         mkdir -p "{{ target_home }}/dotfiles-backup/${TS}"
-        # por cada archivo del paquete (relativo, incluyendo puntos iniciales)
+
+        # Recorre todos los ficheros del paquete (p.ej. bash/.bashrc)
         while IFS= read -r -d '' f; do
-          tgt="{{ target_home }}/$f"
+          rel="${f#${pkg}/}"                      # quita prefijo "pkg/"
+          tgt="{{ target_home }}/${rel}"          # destino real en $HOME
           mkdir -p "$(dirname "$tgt")"
           if [ -e "$tgt" ] && [ ! -L "$tgt" ]; then
             mv "$tgt" "{{ target_home }}/dotfiles-backup/${TS}/$(basename "$tgt").bak"
@@ -74,6 +94,7 @@
       changed_when: true
       tags: ['dotfiles']
 
+    # 7.2) Reintentar Stow ya sin conflictos
     - name: "Reintentar Stow sin conflictos"
       ansible.builtin.command:
         argv: ["stow", "-t", "{{ target_home }}", "{{ item }}"]
@@ -81,3 +102,4 @@
       loop: "{{ dotfiles_packages }}"
       changed_when: false
       tags: ['dotfiles']
+

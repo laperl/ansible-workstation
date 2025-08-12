@@ -10,3 +10,4 @@
     - { role: gaming,     when: install_gaming, tags: ['gaming'] }
     - { role: ai,         when: install_ai,     tags: ['ai'] }
     - { role: security,   tags: ['security'] }
+    - { role: ssh,        tags: ['ssh'] }

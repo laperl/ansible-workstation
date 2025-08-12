@@ -1,5 +1,7 @@
 creation_rules:
   - path_regex: secrets/.*\.sops\.ya?ml$
     encrypted_regex: '^(data|stringData|.*_secret|secrets|tokens)$'
-    age:
-      - "age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    age: ["age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+  - path_regex: secrets/ssh/.*\.sops$        # ⬅️ binarios (clave privada)
+    age: ["age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+

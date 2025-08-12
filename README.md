@@ -20,8 +20,8 @@ Todo lo utilizado (Ansible, Stow, SOPS, TPM, Podman) es **gratis**.
 
 ```bash
 # 1) Clona este repo en tu $HOME
-git clone https://github.com/<tu-usuario>/popos-workstation-ansible.git
-cd popos-workstation-ansible
+git clone https://github.com/<tu-usuario>/ansible-workstation.git
+cd ansible-workstation
 
 # 2) Bootstrap (instala requisitos + primer playbook)
 bash scripts/bootstrap.sh
@@ -79,7 +79,7 @@ Cambia aquí y vuelve a ejecutar con `make` o `ansible-playbook`.
 ## Estructura del repo (resumen)
 
 ```
-popos-workstation-ansible/
+ansible-workstation/
 ├─ ansible.cfg
 ├─ site.yml
 ├─ requirements.yml
@@ -94,8 +94,11 @@ popos-workstation-ansible/
 │  ├─ containers/  # Podman/Docker y NVIDIA toolkit
 │  ├─ gaming/      # Steam, ProtonUp-Qt, Lutris, Gamemode
 │  ├─ ai/          # Toolkit NVIDIA mínimo
-│  └─ security/    # ufw, fail2ban, ssh endurecido
-├─ dotfiles/       # bash, git, vim, tmux
+│  ├─ security/    # ufw, fail2ban, ssh endurecido
+│  ├─ dotfiles/    # bash, git, vim, tmux
+│  └─ ssh/
+│     ├─ tasks/main.yml
+│     └─ templates/ssh_config.j2
 ├─ scripts/bootstrap.sh
 ├─ Makefile
 ├─ .sops.yaml

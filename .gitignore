@@ -1,0 +1,66 @@
+# --- SISTEMA / EDITORES ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+.direnv/
+.vscode/
+.idea/
+*.code-workspace
+
+# --- ANSIBLE ---
+*.retry                 # archivos de reintento (por si se generan)
+.ansible/
+.ansible_async/
+# si usas facts cache en disco, ignóralo:
+# facts/                 
+
+# --- STOW / DOTFILES ---
+# Stow no debería generar archivos aquí, pero por si acaso:
+.stow-local-ignore
+
+# --- CONTENEDORES / VARIOS ---
+node_modules/
+dist/
+build/
+tmp/
+.cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- SECRETOS: PERMITIR SOLO CIFRADOS (SOPS) Y CLAVES PUBLICAS ---
+# NO subas claves privadas ni material sensible en claro.
+# Permitido: *.sops, *.sops.yml/.yaml y *.pub
+# Denegado explícito para formatos comunes de claves/credenciales:
+
+# Claves privadas SSH comunes
+secrets/**/id_rsa
+secrets/**/id_dsa
+secrets/**/id_ecdsa
+secrets/**/id_ed25519
+secrets/**/known_hosts
+secrets/**/authorized_keys
+
+# Otros formatos de clave/cert
+secrets/**/*.key
+secrets/**/*.pem
+secrets/**/*.der
+secrets/**/*.p12
+secrets/**/*.crt
+
+# POR DEFECTO, NO BLOQUEAMOS TODO secrets/ para poder versionar:
+# - ficheros cifrados con SOPS (*.sops, *.sops.yml/.yaml)
+# - claves públicas (*.pub)
+# (No hace falta whitelisting si no ignoramos la carpeta completa)
+
+# --- LOGS / SALIDAS ---
+*.log
+logs/

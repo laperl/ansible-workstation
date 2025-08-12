@@ -23,12 +23,61 @@
     flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
   tags: ['flatpak']
 
-- name: Desplegar dotfiles con Stow al $HOME
+- name: Detectar soporte de --adopt en stow
+  ansible.builtin.command: stow --help
+  register: stow_help
+  changed_when: false
+  failed_when: false
+  tags: ['dotfiles']
+
+- name: Desplegar dotfiles con Stow (con adopt si está disponible)
   vars:
     target_home: "{{ lookup('env','HOME') }}"
+    has_adopt: "{{ stow_help.stdout is search('--adopt') }}"
   ansible.builtin.command:
-    argv: ["stow", "-t", "{{ target_home }}", "{{ item }}"]
+    argv: >-
+      {{ ['stow'] +
+          (has_adopt | bool | ternary(['--adopt'], [])) +
+          ['-t', target_home, item] }}
     chdir: "{{ playbook_dir }}/dotfiles"
   loop: "{{ dotfiles_packages }}"
+  # Cuando no hay --adopt, evitamos fallo por conflictos:
+  register: stow_run
+  failed_when: >
+    (stow_run.rc != 0) and (stow_run.stderr is not search('would cause conflicts'))
   changed_when: false
   tags: ['dotfiles']
+
+- name: "Fallback sin --adopt: backup de conflictos y reintento"
+  when: stow_help.stdout is not search('--adopt')
+  vars:
+    target_home: "{{ lookup('env','HOME') }}"
+  block:
+    - name: "Mover a backup archivos en conflicto de cada paquete"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        pkg="{{ item }}"
+        cd "{{ playbook_dir }}/dotfiles"
+        TS="$(date +%Y%m%d-%H%M%S)"
+        mkdir -p "{{ target_home }}/dotfiles-backup/${TS}"
+        # por cada archivo del paquete (relativo, incluyendo puntos iniciales)
+        while IFS= read -r -d '' f; do
+          tgt="{{ target_home }}/$f"
+          mkdir -p "$(dirname "$tgt")"
+          if [ -e "$tgt" ] && [ ! -L "$tgt" ]; then
+            mv "$tgt" "{{ target_home }}/dotfiles-backup/${TS}/$(basename "$tgt").bak"
+          fi
+        done < <(find "$pkg" -type f -print0)
+      args:
+        executable: /bin/bash
+      loop: "{{ dotfiles_packages }}"
+      changed_when: true
+      tags: ['dotfiles']
+
+    - name: "Reintentar Stow sin conflictos"
+      ansible.builtin.command:
+        argv: ["stow", "-t", "{{ target_home }}", "{{ item }}"]
+        chdir: "{{ playbook_dir }}/dotfiles"
+      loop: "{{ dotfiles_packages }}"
+      changed_when: false
+      tags: ['dotfiles']

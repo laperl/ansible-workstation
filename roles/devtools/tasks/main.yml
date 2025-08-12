@@ -1,53 +1,142 @@
-- name: Cargar vars según familia de SO
-  ansible.builtin.include_vars: "{{ item }}"
-  with_first_found:
-    - "{{ ansible_os_family }}.yml"
+# roles/devtools/tasks/main.yml
 
-- name: Instalar paquetes de desarrollo
+# --- Paquetes comunes de desarrollo ---
+- name: Instalar paquetes base de desarrollo
+  become: true
   ansible.builtin.package:
-    name: "{{ dev_packages }}"
+    name:
+      - git
+      - pipx
+      - tmux
     state: present
   tags: ['dev']
 
-- name: Asegurar pipx en PATH del usuario
-  ansible.builtin.lineinfile:
-    path: "{{ lookup('env','HOME') }}/.bashrc"
-    line: 'export PATH="$PATH:$HOME/.local/bin"'
-    insertafter: EOF
+# --- Editor CLI: Neovim o Vim según cli_editor ---
+- name: Instalar Neovim si cli_editor == nvim
+  become: true
+  when: cli_editor == "nvim"
+  ansible.builtin.package:
+    name: neovim
+    state: present
+  tags: ['dev','editor']
+
+- name: Instalar Vim si cli_editor == vim
+  become: true
+  when: cli_editor == "vim"
+  ansible.builtin.package:
+    name: vim
+    state: present
+  tags: ['dev','editor']
+
+# --- VSCodium por Flatpak (GUI) ---
+- name: Instalar VSCodium por Flatpak (si está activado)
+  when: install_vscodium | bool
+  community.general.flatpak:
+    name: "{{ vscodium_flatpak_id }}"
+    state: present
+  tags: ['dev','editor']
+
+# Wrapper opcional: 'codium' en PATH del usuario apunta al Flatpak
+- name: Asegurar ~/.local/bin existe
+  become: false
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local/bin"
+    state: directory
+    mode: '0755'
   tags: ['dev']
 
-- name: Instalar ansible-lint via pipx (para CI local)
+- name: Crear wrapper 'codium' para flatpak run
+  when: install_vscodium | bool
+  become: false
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.local/bin/codium"
+    mode: '0755'
+    content: |
+      #!/usr/bin/env bash
+      exec flatpak run {{ vscodium_flatpak_id }} "$@"
+  tags: ['dev','editor']
+
+# --- ansible-lint via pipx ---
+- name: Instalar ansible-lint via pipx
   community.general.pipx:
     name: ansible-lint
     state: present
   tags: ['dev']
 
-# --- tmux + TPM ---
+# --- tmux + TPM (como ya tenías) ---
 - name: Crear carpeta de plugins de tmux
+  become: false
   ansible.builtin.file:
-    path: "{{ lookup('env','HOME') }}/.tmux/plugins"
+    path: "{{ ansible_env.HOME }}/.tmux/plugins"
     state: directory
     mode: '0755'
   tags: ['dev','tmux']
 
 - name: Instalar TPM (Tmux Plugin Manager)
+  become: false
   ansible.builtin.git:
     repo: https://github.com/tmux-plugins/tpm
-    dest: "{{ lookup('env','HOME') }}/.tmux/plugins/tpm"
+    dest: "{{ ansible_env.HOME }}/.tmux/plugins/tpm"
     version: master
     update: yes
   tags: ['dev','tmux']
 
-- name: Mensaje para instalar plugins (manual, seguro)
+- name: Recordatorio para instalar plugins TPM
   ansible.builtin.debug:
     msg: "Abre tmux y pulsa Prefix + I para instalar plugins via TPM."
   tags: ['dev','tmux']
 
-# --- Editor por defecto ---
-- name: Exportar EDITOR por defecto si no existe
-  ansible.builtin.lineinfile:
-    path: "{{ lookup('env','HOME') }}/.bashrc"
-    regexp: '^export EDITOR='
-    line: 'export EDITOR="{{ default_editor }}"'
-    insertafter: EOF
-  tags: ['dev']
+# --- EDITOR/VISUAL y alias/links para que 'vi' y 'vim' llamen a nvim ---
+- name: Exportar EDITOR/VISUAL en .bashrc
+  become: false
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    marker: "# {mark} POPOS-EDITOR"
+    block: |
+      export PATH="$HOME/.local/bin:$PATH"
+      export EDITOR="{{ 'nvim' if cli_editor == 'nvim' else 'vim' }}"
+      export VISUAL="$EDITOR"
+  tags: ['dev','editor']
+
+# Preferimos symlinks en ~/.local/bin (funcionan también en shells no interactivos)
+- name: Crear symlink ~/./local/bin/vim -> nvim (si cli_editor == nvim)
+  when: cli_editor == "nvim"
+  become: false
+  ansible.builtin.file:
+    src: /usr/bin/nvim
+    dest: "{{ ansible_env.HOME }}/.local/bin/vim"
+    state: link
+  tags: ['dev','editor']
+
+- name: Crear symlink ~/./local/bin/vi -> nvim (si cli_editor == nvim)
+  when: cli_editor == "nvim"
+  become: false
+  ansible.builtin.file:
+    src: /usr/bin/nvim
+    dest: "{{ ansible_env.HOME }}/.local/bin/vi"
+    state: link
+  tags: ['dev','editor']
+
+# Alias por si el usuario prefiere alias (fallback; no estorban)
+- name: Alias 'vim' y 'vi' -> nvim en .bash_aliases (si cli_editor == nvim)
+  when: cli_editor == "nvim"
+  become: false
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_env.HOME }}/.bash_aliases"
+    create: true
+    marker: "# {mark} POPOS-NVIM-ALIASES"
+    block: |
+      alias vim='nvim'
+      alias vi='nvim'
+  tags: ['dev','editor']
+
+# --- update-alternatives para /usr/bin/editor (Debian/Ubuntu) ---
+- name: Establecer /usr/bin/editor -> nvim en Debian/Ubuntu
+  when: cli_editor == "nvim" and ansible_os_family == "Debian"
+  become: true
+  community.general.alternatives:
+    name: editor
+    link: /usr/bin/editor
+    path: /usr/bin/nvim
+    priority: 110
+  tags: ['dev','editor']

@@ -1,10 +1,5 @@
 [user]
-    name = Pops
-    email = jaume@pops.com
-[core]
-    editor = vim
-    excludesfile = ~/.gitignore_global
+	email = jaume@pops02.com
+	name = Jaume
 [init]
-    defaultBranch = main
-[push]
-    default = current
+	defaultBranch = main

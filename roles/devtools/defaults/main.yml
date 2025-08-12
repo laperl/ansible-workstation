@@ -1,0 +1,3 @@
+cli_editor: "nvim"
+install_vscodium: true
+vscodium_flatpak_id: "com.vscodium.codium"

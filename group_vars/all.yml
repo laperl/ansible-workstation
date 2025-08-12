@@ -1,4 +1,10 @@
-default_editor: "vim"           # opciones: vim | nvim | vscodium
+# Editor CLI predeterminado
+cli_editor: "nvim"            # opciones: nvim | vim
+
+# Editor GUI (VSCodium) – instala por defecto
+install_vscodium: true
+vscodium_flatpak_id: "com.vscodium.codium"
+
 container_runtime: "podman"     # opciones: podman | docker
 install_gaming: true
 install_ai: true
@@ -7,3 +13,13 @@ dotfiles_packages:
   - git
   - vim
   - tmux
+
+# Usuario workstation por defecto:
+# - Si se ejecuta con sudo: SUDO_USER
+# - Si no, ansible_user_id
+workstation_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
+
+# HOME del usuario (por si falla la resolución automática)
+# Se sobreescribe en pre_tasks vía getent (ver site.yml)
+workstation_home: "{{ '/root' if workstation_user == 'root' else '/home/' + workstation_user }}"
+

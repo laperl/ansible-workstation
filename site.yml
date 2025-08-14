@@ -46,4 +46,5 @@
     - {role: ai, when: install_ai, tags: ['ai']}
     - {role: security, tags: ['security']}
     - {role: ssh, tags: ['ssh']}
+    - {role: storage_exfat, tags: ['exfat']}
     - {role: security_veracrypt, tags: ['veracrypt']}

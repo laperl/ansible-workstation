@@ -1,13 +1,12 @@
 ---
-
 # Editor CLI predeterminado
-cli_editor: "nvim"            # opciones: nvim | vim
+cli_editor: "nvim"  # opciones: nvim | vim
 
 # Editor GUI (VSCodium) – instala por defecto
 install_vscodium: true
 vscodium_flatpak_id: "com.vscodium.codium"
 
-container_runtime: "podman"     # opciones: podman | docker
+container_runtime: "podman"  # opciones: podman | docker
 install_gaming: true
 install_ai: true
 dotfiles_packages:
@@ -27,32 +26,62 @@ workstation_home: >-
   {{ '/root' if workstation_user == 'root'
   else '/home/' + workstation_user }}
 
-
 # ===== VeraCrypt (instalación .deb oficial con verificación PGP) =====
-veracrypt_version: "1.26.24"            # la que tengas fijada
-veracrypt_series: "22.04"               # Pop!_OS 22.04 base Ubuntu 22.04
+veracrypt_version: "1.26.24"  # la que tengas fijada
+veracrypt_series: "22.04"     # Pop!_OS 22.04 base Ubuntu 22.04
 veracrypt_arch: "amd64"
 
 # URLs: los .deb se publican en Launchpad y están enlazados desde Downloads
 veracrypt_deb_url: >-
-  "https://launchpad.net/veracrypt/trunk/{{ veracrypt_version }}/+download/ve
-  racrypt-{{ veracrypt_version }}-Ubuntu
-  -{{ veracrypt_series }}-{{ veracrypt_arch }}.deb"
+  {{
+    "https://launchpad.net/veracrypt/trunk/" ~ veracrypt_version ~
+    "/+download/veracrypt-" ~ veracrypt_version ~
+    "-Ubuntu-" ~ veracrypt_series ~ "-" ~ veracrypt_arch ~ ".deb"
+  }}
 veracrypt_sig_url: >-
-  "https://launchpad.net/veracrypt/trunk/{{ veracrypt_version }}/+download/ver
-  acrypt-{{ veracrypt_version }}-Ubunt
-  u-{{ veracrypt_series }}-{{ veracrypt_arch }}.deb.sig"
+  {{
+    "https://launchpad.net/veracrypt/trunk/" ~ veracrypt_version ~
+    "/+download/veracrypt-" ~ veracrypt_version ~
+    "-Ubuntu-" ~ veracrypt_series ~ "-" ~ veracrypt_arch ~ ".deb.sig"
+  }}
 
 # Clave PGP oficial (actual): ID 0x680D16DE,
 # fingerprint 5069A233D55A0EEB174A5FC3821ACD02680D16DE
 veracrypt_pgp_key_url: >-
-  "https://amcrypto.jp/VeraCrypt/VeraCrypt_PGP_public_key.asc"
+  https://amcrypto.jp/VeraCrypt/VeraCrypt_PGP_public_key.asc
 
 # Contenedores a montar con el wrapper "vc"
 veracrypt_containers:
   - name: "personal"
     path: >-
-      "/home/{{ workstation_user }}/
-      Documents/CONTENEDOR/SECURE/baul_desmuntat"
-    mount: "/home/{{ workstation_user }}/Documents/SECURE_veracrypt/"
-    pim: ""    # si usas PIM, pon el número; vacío si no
+      {{
+        "/home/" ~ workstation_user ~
+        "/Documents/CONTENEDOR/SECURE/baul_desmuntat"
+      }}
+    mount: >-
+      {{ "/home/" ~ workstation_user ~ "/Documents/SECURE_veracrypt/" }}
+    pim: ""  # si usas PIM, pon el número; vacío si no
+
+# ===== Storage extfat
+# Dónde montarás el disco exFAT que contiene tus contenedores VeraCrypt
+exfat_mountpoint: "{{ workstation_home }}/Documents/CONTENEDOR"
+exfat_fstype: "exfat"
+
+# Identificador del volumen. Elige uno:
+# exfat_src: "LABEL=CONTENEDOR"  # Recomendado: etiqueta constante (exfatlabel)
+# exfat_src: "UUID=XXXX-XXXX"    # Alternativa: UUID estático del volumen
+exfat_src: "PARTUUID=9212a821-39c4-4c60-adfc-01941dcd9abf"  # sudo blkid
+
+# Propietario efectivo al montar exFAT (no hay permisos POSIX nativos);
+# tomamos UID/GID del usuario real de la workstation (sin shell/cmd).
+exfat_uid: "{{ getent_passwd[workstation_user][1] | default(omit) }}"
+exfat_gid: "{{ getent_passwd[workstation_user][2] | default(omit) }}"
+
+# Opciones de montaje seguras y prácticas:
+# - uid/gid,fmask,dmask: emulan permisos para FAT/exFAT (sin bits POSIX).
+# - nosuid,nodev,noexec,noatime: hardening básico.
+# - x-systemd.automount + idle-timeout: automonta bajo demanda y se
+#   “desactiva” si no se usa.
+# - nofail: no rompe el arranque si el disco no está presente.
+exfat_opts: >-
+  uid={{ exfat_uid }},gid={{ exfat_gid }},fmask=0177,dmask

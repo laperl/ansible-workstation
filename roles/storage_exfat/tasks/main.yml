@@ -1,0 +1,33 @@
+---
+- name: "Resolver UID/GID del usuario objetivo de forma portable (getent)"
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ workstation_user }}"
+  tags: [exfat]
+
+- name: "Crear punto de montaje para exFAT (CONTENEDOR)"
+  ansible.builtin.file:
+    path: "{{ exfat_mountpoint }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0755'               # en directorios se requiere 'x' para entrar
+  become: true
+  tags: [exfat]
+
+- name: "Asegurar entrada en /etc/fstab (idempotente)"
+  ansible.posix.mount:
+    path: "{{ exfat_mountpoint }}"
+    src: "{{ exfat_src }}"
+    fstype: "{{ exfat_fstype }}"
+    opts: "{{ exfat_opts }}"
+    state: present       # escribe/actualiza fstab sin forzar montaje ahora
+  become: true
+  tags: [exfat]
+
+- name: "Recargar systemd tras cambiar fstab (necesario para automount)"
+  ansible.builtin.systemd:
+    daemon_reload: true
+  changed_when: false
+  become: true
+  tags: [exfat]

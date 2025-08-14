@@ -84,4 +84,4 @@ exfat_gid: "{{ getent_passwd[workstation_user][2] | default(omit) }}"
 #   “desactiva” si no se usa.
 # - nofail: no rompe el arranque si el disco no está presente.
 exfat_opts: >-
-  uid={{ exfat_uid }},gid={{ exfat_gid }},fmask=0177,dmask
+  uid={{ exfat_uid }},gid={{ exfat_gid }},fmask=0177,dmask=0077

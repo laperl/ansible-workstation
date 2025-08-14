@@ -11,7 +11,7 @@
     state: directory
     owner: "{{ workstation_user }}"
     group: "{{ workstation_user }}"
-    mode: '0755'               # en directorios se requiere 'x' para entrar
+    mode: '0755'
   become: true
   tags: [exfat]
 

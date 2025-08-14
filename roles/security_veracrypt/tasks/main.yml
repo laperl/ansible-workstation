@@ -137,3 +137,14 @@
   loop: "{{ veracrypt_containers }}"
   changed_when: false
   tags: [veracrypt]
+
+# 7) Creo el directorio donde vamos a alojar el
+- name: "Crear carpeta segura para el volumen descifrado"
+  ansible.builtin.file:
+    path: "{{ item.mount }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0700'
+  become: true
+  tags: [veracrypt]

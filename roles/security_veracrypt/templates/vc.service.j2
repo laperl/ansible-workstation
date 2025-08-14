@@ -1,0 +1,11 @@
+[Unit]
+Description=VeraCrypt (%i) - mount user container
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/vc mount {{ item.path }} {{ item.mount }} {{ item.pim | default('') }}
+ExecStop=/usr/local/bin/vc umount {{ item.mount }}
+
+[Install]
+WantedBy=default.target

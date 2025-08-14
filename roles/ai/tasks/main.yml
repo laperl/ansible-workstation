@@ -1,10 +1,15 @@
+---
 - name: Detectar GPU NVIDIA (no falla si no hay)
-  ansible.builtin.shell: "lspci | grep -i nvidia || true"
-  register: nvidia_gpus
+  ansible.builtin.shell: |
+    set -o pipefail
+    lspci | grep -i nvidia || true
+  args:
+    executable: /bin/bash
+  register: ai_nvidia_gpus
   changed_when: false
   tags: ['ai']
 
-- name: Instalar nvidia-cuda-toolkit (Ubuntu/Pop!_OS)
+- name: "Instalar nvidia-cuda-toolkit (Ubuntu/Pop!_OS)"
   when: nvidia_gpus.stdout != "" and ansible_os_family == "Debian"
   ansible.builtin.package:
     name: nvidia-cuda-toolkit

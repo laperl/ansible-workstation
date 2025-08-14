@@ -1,3 +1,4 @@
-cli_editor: "nvim"
-install_vscodium: true
-vscodium_flatpak_id: "com.vscodium.codium"
+---
+devtools_cli_editor: "nvim"
+devtools_install_vscodium: true
+devtools_vscodium_flatpak_id: "com.vscodium.codium"

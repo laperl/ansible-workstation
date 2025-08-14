@@ -1,3 +1,4 @@
+---
 # roles/base/tasks/main.yml
 
 # 1) Carga variables de paquetes según la familia del SO (ej. Debian.yml)
@@ -33,7 +34,7 @@
 - name: "Detectar soporte de --adopt en stow"
   become: false
   ansible.builtin.command: stow --help
-  register: stow_help
+  register: base_stow_help
   changed_when: false
   failed_when: false
   tags: ['dotfiles']
@@ -45,7 +46,7 @@
   become: false
   vars:
     target_home: "{{ workstation_home }}"
-    has_adopt: "{{ stow_help.stdout is search('--adopt') }}"
+    has_adopt: "{{ base_stow_help.stdout is search('--adopt') }}"
   ansible.builtin.command:
     argv: >-
       {{ ['stow'] +
@@ -53,7 +54,7 @@
          ['-t', target_home, item] }}
     chdir: "{{ playbook_dir }}/dotfiles"
   loop: "{{ dotfiles_packages }}"
-  register: stow_run
+  register: base_stow_run
   # No fallar aquí incluso si hay conflictos (cuando no hay --adopt)
   failed_when: false
   changed_when: false
@@ -63,15 +64,14 @@
 #    - Hace backup de los archivos reales que chocarían (no symlinks)
 #    - Reintenta Stow sin conflictos
 - name: "Fallback sin --adopt: backup de conflictos y reintento"
-  when: stow_help.stdout is not search('--adopt')
+  when: base_stow_help.stdout is not search('--adopt')
   become: false
   vars:
     target_home: "{{ workstation_home }}"
   block:
-
     # 7.1) Mover a backup los ficheros en conflicto por cada paquete
-    #      Nota: calculamos la ruta destino quitando el prefijo del paquete (pkg/)
-    - name: Mover a backup archivos en conflicto de cada paquete"
+    #  Nota: calculamos la ruta destino quitando el prefijo del paquete (pkg/)
+    - name: "Mover a backup archivos en conflicto de cada paquete"
       ansible.builtin.shell: |
         set -euo pipefail
         pkg="{{ item }}"
@@ -85,7 +85,8 @@
           tgt="{{ target_home }}/${rel}"          # destino real en $HOME
           mkdir -p "$(dirname "$tgt")"
           if [ -e "$tgt" ] && [ ! -L "$tgt" ]; then
-            mv "$tgt" "{{ target_home }}/dotfiles-backup/${TS}/$(basename "$tgt").bak"
+            mv "$tgt" \
+              "{{ target_home }}/dotfiles-backup/${TS}/$(basename "$tgt").bak"
           fi
         done < <(find "$pkg" -type f -print0)
       args:
@@ -102,4 +103,3 @@
       loop: "{{ dotfiles_packages }}"
       changed_when: false
       tags: ['dotfiles']
-

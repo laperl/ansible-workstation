@@ -1,3 +1,4 @@
+---
 - name: "UFW por defecto deny incoming, allow outgoing"
   community.general.ufw:
     state: enabled
@@ -18,7 +19,7 @@
     path: /etc/ssh/sshd_config
     regexp: '^PasswordAuthentication'
     line: 'PasswordAuthentication no'
-    create: no
+    create: false
   notify: Restart sshd
 
 - name: "Actualizaciones automáticas (Debian/Ubuntu)"
@@ -26,4 +27,3 @@
   ansible.builtin.package:
     name: unattended-upgrades
     state: present
-

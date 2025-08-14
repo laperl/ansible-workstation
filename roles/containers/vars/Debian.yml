@@ -1,10 +1,11 @@
-podman_packages:
+---
+containers_podman_packages:
   - podman
   - uidmap
   - slirp4netns
   - fuse-overlayfs
-docker_packages:
+containers_docker_packages:
   - docker.io
   - docker-compose-v2
-nvidia_toolkit_packages:
+containers_nvidia_toolkit_packages:
   - nvidia-container-toolkit

@@ -30,6 +30,7 @@ workstation_home: >-
 veracrypt_version: "1.26.24"  # la que tengas fijada
 veracrypt_series: "22.04"     # Pop!_OS 22.04 base Ubuntu 22.04
 veracrypt_arch: "amd64"
+veracrypt_cache: "/var/cache/veracrypt"
 
 # URLs: los .deb se publican en Launchpad y están enlazados desde Downloads
 veracrypt_deb_url: >-

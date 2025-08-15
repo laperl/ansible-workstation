@@ -14,7 +14,7 @@
 
 - name: Caché de descargas
   ansible.builtin.file:
-    path: /var/cache/veracrypt
+    path: "{{ veracrypt_cache }}"
     state: directory
     mode: '0755'
   become: true
@@ -22,7 +22,7 @@
 - name: Descargar clave PGP oficial (ID 0x680D16DE)
   ansible.builtin.get_url:
     url: "{{ veracrypt_pgp_key_url }}"
-    dest: /var/cache/veracrypt/veracrypt_pubkey.asc
+    dest: "{{ veracrypt_cache }}/veracrypt_pubkey.asc"
     mode: '0644'
   become: true
 
@@ -32,25 +32,29 @@
       - gpg
       - --no-default-keyring
       - --keyring
-      - /var/cache/veracrypt/vc.gpg
+      - "{{ veracrypt_cache }}/vc.gpg"
       - --import
-      - /var/cache/veracrypt/veracrypt_pubkey.asc
+      - "{{ veracrypt_cache }}/veracrypt_pubkey.asc"
   changed_when: false
   become: true
 
 - name: Definir rutas de paquete y firma
   ansible.builtin.set_fact:
-    security_veracrypt_pkg: >-
+    security_veracrypt_vc_pkg: >-
       {{
-        "/var/cache/veracrypt/veracrypt-" ~ veracrypt_version ~
-        "-Ubuntu-" ~ veracrypt_series ~ "-" ~ veracrypt_arch ~ ".deb"
+        veracrypt_cache ~ '/veracrypt-' ~ veracrypt_version ~
+        '-Ubuntu-' ~ veracrypt_series ~ '-' ~ veracrypt_arch ~ '.deb'
       }}
-    security_veracrypt_sig: "{{ security_veracrypt_pkg }}.sig"
+    security_veracrypt_sig: >-
+      {{
+        veracrypt_cache ~ '/veracrypt-' ~ veracrypt_version ~
+        '-Ubuntu-' ~ veracrypt_series ~ '-' ~ veracrypt_arch ~ '.deb.sig'
+      }}
 
 - name: Descargar .deb oficial
   ansible.builtin.get_url:
     url: "{{ veracrypt_deb_url }}"
-    dest: "{{ security_veracrypt_pkg }}"
+    dest: "{{ security_veracrypt_vc_pkg }}"
     mode: '0644'
   become: true
 
@@ -67,10 +71,10 @@
       - gpg
       - --no-default-keyring
       - --keyring
-      - /var/cache/veracrypt/vc.gpg
+      - "{{ veracrypt_cache }}/vc.gpg"
       - --verify
       - "{{ security_veracrypt_sig }}"
-      - "{{ security_veracrypt_pkg }}"
+      - "{{ security_veracrypt_vc_pkg }}"
   register: security_veracrypt_gpg_verify
   changed_when: false
   failed_when: security_veracrypt_gpg_verify.rc != 0
@@ -78,13 +82,13 @@
 
 - name: Comprobar versión instalada
   ansible.builtin.command: veracrypt --text --version
-  register: security_veracrypt_vc_ver
+  register: security_veracrypt_ver
   failed_when: false
   changed_when: false
 
 - name: Instalar .deb si la versión difiere
   ansible.builtin.apt:
-    deb: "{{ security_veracrypt_pkg }}"
-  when: security_veracrypt_vc_ver.rc != 0
-        or (veracrypt_version not in security_veracrypt_vc_ver.stdout)
+    deb: "{{ security_veracrypt_vc_pkg }}"
+  when: security_veracrypt_ver.rc != 0 or
+    (veracrypt_version not in security_veracrypt_ver.stdout)
   become: true

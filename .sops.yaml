@@ -4,4 +4,3 @@ creation_rules:
     age: ["age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
   - path_regex: secrets/ssh/.*\.sops$        # ⬅️ binarios (clave privada)
     age: ["age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
-

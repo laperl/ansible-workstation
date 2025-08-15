@@ -1,28 +1,27 @@
 #!/usr/bin/env bash
-# Wrapper seguro para VeraCrypt (CLI, sin exponer contraseña en argv/env).
+# vc: atajo para montar/desmontar con VeraCrypt CLI (modo texto)
+# Uso:
+#   vc mount  <container.hc> <mountpoint>
+#   vc umount <mountpoint>
+#   vc list
 set -euo pipefail
 
-usage(){ echo "uso: vc {mount|umount|list} <container> <mountpoint> [pim]"; }
+cmd="${1:-}"; shift || true
 
-cmd="${1:-}"; cont="${2:-}"; mnt="${3:-}"; pim="${4:-}"
-
-case "${cmd:-}" in
+case "${cmd}" in
   mount)
-    [ -n "${cont:-}" ] && [ -n "${mnt:-}" ] || { usage; exit 1; }
+    cont="${1:?uso: vc mount <container.hc> <mountpoint>}"; mnt="${2:?uso: vc mount <container.hc> <mountpoint>}"
     mkdir -p -- "$mnt"
-    # Pide pass por el agente de systemd y pásala por STDIN a veracrypt
-    PASS="$(/usr/bin/systemd-ask-password "Passphrase VeraCrypt para ${cont}:")" || exit 1
-    printf '%s' "$PASS" | veracrypt --text --non-interactive --stdin \
-      ${pim:+--pim="$pim"} --protect-hidden=no "$cont" "$mnt"
-    unset PASS
+    chmod 0700 "$mnt"
+    exec veracrypt --text --mount "$cont" "$mnt"          # pedirá pass y PIM aquí
     ;;
   umount|unmount)
-    [ -n "${mnt:-}" ] || { usage; exit 1; }
-    veracrypt --text -d "$mnt" || true
+    mnt="${1:?uso: vc umount <mountpoint>}"
+    exec veracrypt -d "$mnt"
     ;;
   list)
-    veracrypt -l
+    exec veracrypt -l
     ;;
   *)
-    usage; exit 1 ;;
+    echo "uso: vc {mount|umount|list} ..."; exit 1 ;;
 esac

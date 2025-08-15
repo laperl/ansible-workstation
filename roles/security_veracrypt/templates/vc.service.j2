@@ -1,12 +1,12 @@
-[Install]
-WantedBy=default.target
-
 [Unit]
 Description=VeraCrypt (%i) - mount user container
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+# Log al journal del usuario
+StandardOutput=journal
+StandardError=journal
 ExecStart=/usr/local/bin/vc open {{ item.path }} {{ item.mount }} vc_{{ item.name }}
 ExecStop=/usr/local/bin/vc close {{ item.mount }} vc_{{ item.name }}
 

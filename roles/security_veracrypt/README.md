@@ -1,162 +1,173 @@
-# Rol: `storage_exfat`
+# security\_veracrypt (VeraCrypt CLI)
 
-Configura un punto de montaje **exFAT** estable para alojar contenedores VeraCrypt (u otros datos) en Pop!\_OS/Ubuntu. El rol crea el directorio de montaje, asegura una entrada en `/etc/fstab` con **PARTUUID=** o **LABEL=** o **UUID=** y habilita **automontaje bajo demanda** con `x-systemd.automount`, aplicando opciones de hardening (`nosuid,nodev,noexec`).
+Rol Ansible para **instalar VeraCrypt** en Pop!\_OS/Ubuntu (paquete `.deb` verificado por **PGP**) y preparar puntos de montaje. **No** monta automáticamente: el montaje/desmontaje se hace **manual por CLI** con VeraCrypt oficial (compatible con Linux/Windows/macOS).
 
----
-
-## Objetivos
-
-* Montaje **reproducible e idempotente** usando `ansible.posix.mount`.
-* Soporte para discos intercambiables (recomendada `LABEL=` única).
-* Automontaje bajo demanda (systemd) y no fallo si el disco no está (`nofail`).
-* Máscara de permisos para exFAT mediante `uid/gid,fmask,dmask`.
+> **Modelo operativo**: simple, seguro y portable. Sin helpers `sudoers`, sin systemd units. El contenedor puede usarse en los tres sistemas con la misma semántica.
 
 ---
 
 ## Requisitos
 
-* Sistema base Pop!\_OS/Ubuntu.
-* El volumen exFAT existe y está **etiquetado** (p. ej. `CONTENEDOR`) o conoces su **UUID**.
-* La colección `ansible.posix` disponible en el *controller* (se instala con `ansible-galaxy collection install ansible.posix`).
+* Pop!\_OS/Ubuntu 22.04/24.04 (o derivadas).
+* Paquetes base (se instalan desde el rol): `gnupg`, `gpg-agent`, `ca-certificates`, `xz-utils`, `fuse3`.
+* Contenedor VeraCrypt **.hc** existente (o créalo con la GUI/CLI de VeraCrypt).
 
-> Nota: exFAT no implementa permisos POSIX; se emulan con `uid/gid,fmask,dmask` en el montaje. En este caso, el directorio se montará como root pero el usuario podrá hacer CRUD dentro por el efecto de los 'fmask y dmask'.
-
----
-
-## Variables (en `group_vars/all.yml`)
-
-```yaml
-defaults:
-  # Dónde montar el disco exFAT
-  exfat_mountpoint: "{{ workstation_home }}/Documents/CONTENEDOR"
-  exfat_fstype: "exfat"
-
-  # Identificador del volumen. Elige **uno**:
-  exfat_src: "LABEL=CONTENEDOR"     # Recomendado: etiqueta única y constante
-  # exfat_src: "UUID=XXXX-XXXX"     # Alternativa: usa UUID real
-
-  # Propietario efectivo al montar exFAT (uid/gid del usuario real)
-  # Se resuelven automáticamente con getent
-  exfat_uid: "{{ getent_passwd[workstation_user][1] | default(omit) }}"
-  exfat_gid: "{{ getent_passwd[workstation_user][2] | default(omit) }}"
-
-  # Opciones de montaje seguras/prácticas
-  exfat_opts: >-
-    uid={{ exfat_uid }},gid={{ exfat_gid }},
-    fmask=0177,dmask=0077,
-    nosuid,nodev,noexec,noatime,
-    x-systemd.automount,x-systemd.idle-timeout=60,
-    nofail
-```
-
-**Notas**
-
-* `LABEL=` facilita cambiar de disco: basta replicar la etiqueta.
-* `fmask=0177,dmask=0077` ocultan el bit de ejecución en ficheros y limitan lectura a tu usuario.
-* `x-systemd.automount` crea una *automount unit* y sólo monta al acceder al path; `nofail` evita bloquear el arranque.
+> Nota: Para compatibilidad multi‑OS, el **FS interno del contenedor** suele ser **exFAT** (o NTFS) si lo vas a abrir en Windows/macOS.
 
 ---
 
-## Tareas principales (resumen)
+## Variables clave
+
+Defínelas en `group_vars/all.yml` o en `roles/security_veracrypt/defaults/main.yml`.
 
 ```yaml
-- name: Resolver UID/GID del usuario con getent
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ workstation_user }}"
+# Versión fija del binario (ejemplo)
+veracrypt_version: "1.26.24"
+veracrypt_series:  "24.04"   # serie Ubuntu/Pop!_OS
+veracrypt_arch:    "amd64"
 
-- name: Crear punto de montaje exFAT
-  ansible.builtin.file:
-    path: "{{ exfat_mountpoint }}"
-    state: directory
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
-    mode: '0755'
-  become: true
+# URLs oficiales (Downloads → Launchpad) del .deb y su firma .sig
+veracrypt_deb_url: "https://launchpad.net/veracrypt/{{ veracrypt_version }}/{{ veracrypt_version }}/+download/veracrypt-{{ veracrypt_version }}-Ubuntu-{{ veracrypt_series }}-{{ veracrypt_arch }}.deb"
+veracrypt_sig_url: "https://launchpad.net/veracrypt/{{ veracrypt_version }}/{{ veracrypt_version }}/+download/veracrypt-{{ veracrypt_version }}-Ubuntu-{{ veracrypt_series }}-{{ veracrypt_arch }}.deb.sig"
 
-- name: Asegurar entrada en fstab
-  ansible.posix.mount:
-    path: "{{ exfat_mountpoint }}"
-    src:  "{{ exfat_src }}"
-    fstype: "{{ exfat_fstype }}"
-    opts: "{{ exfat_opts }}"
-    state: present
-  become: true
+# Clave PGP oficial (fingerprint: 5069A233D55A0EEB174A5FC3821ACD02680D16DE)
+veracrypt_pgp_key_url: "https://amcrypto.jp/VeraCrypt/VeraCrypt_PGP_public_key.asc"
 
-- name: Recargar systemd (automount)
-  ansible.builtin.command: systemctl daemon-reload
-  changed_when: false
-  become: true
+# Contenedores que sueles montar
+veracrypt_containers:
+  - name: "personal"
+    path: "{{ exfat_mountpoint }}/personal.hc"               # fichero .hc
+    mount: "{{ workstation_home }}/Documents/SECURE_personal" # sin "/" final
+    pim: ""  # déjalo vacío: se pedirá en runtime si procede
 ```
 
 ---
 
-## Integración: ejecutar *antes* de `security_veracrypt`
+## Despliegue
 
-Para garantizar que el punto de montaje exista **siempre** antes de manejar contenedores VeraCrypt, declara una **dependencia de rol** en `roles/security_veracrypt/meta/main.yml`:
-
-```yaml
----
-dependencies:
-  - role: storage_exfat
-    tags: ['always']
-```
-
-> Con `tags: ['always']`, esta dependencia correrá incluso si ejecutas `--tags veracrypt`.
-
----
-
-## Cómo obtener **UUID** o fijar **LABEL** del volumen
-
-### Ver LABEL/UUID actuales
+1. **Clona/actualiza** el repo de tu *workstation*.
+2. Ajusta variables arriba (si cambias de versión o rutas).
+3. Ejecuta:
 
 ```bash
-lsblk -f   # columnas NAME,FSTYPE,LABEL,UUID,MOUNTPOINT
-# o
-sudo blkid
+ansible-playbook -i inventories/local/hosts.yml site.yml -K -t veracrypt
 ```
 
-### Asignar/cambiar LABEL (recomendado para discos intercambiables)
+El rol:
 
-```bash
-# Requiere exfatprogs; el volumen NO debe estar montado
-sudo exfatlabel /dev/sdX1 CONTENEDOR
-```
+* Descarga el `.deb` y su `.sig`.
+* Importa la **clave PGP** oficial en un *keyring* aislado y **verifica la firma**.
+* Instala el `.deb` **solo si** la versión difiere (idempotente).
+* Crea los directorios `mount` con **0700**.
 
-### Usar LABEL en `group_vars/all.yml`
-
-```yaml
-exfat_src: "LABEL=CONTENEDOR"
-```
-
-### Usar UUID en `group_vars/all.yml`
-
-```yaml
-exfat_src: "UUID=XXXX-XXXX"  # reemplaza por el UUID real mostrado por lsblk/blkid
-```
+> **Actualizaciones**: he configurado un **Watch → Releases** en el GitHub de VeraCrypt para enterarme de nuevas versiones. Cuando haya una nueva: cambia `veracrypt_version`/`*_url` y vuelve a ejecutar el rol.
 
 ---
 
-## Ejecución del rol (opcional, aislado)
+## Uso (montaje/desmontaje manual, CLI)
 
-Si quieres ejecutar sólo este rol:
+### Montar (pedirá **contraseña** y, si aplica, **PIM**)
 
 ```bash
-ansible-playbook -i inventories/local/hosts.yml site.yml -K --tags exfat
+# monta en el destino indicado
+veracrypt --text --mount /ruta/al/contenedor.hc /ruta/al/mountpoint
+
+# ejemplo con tus rutas típicas
+veracrypt --text --mount \
+  "$HOME/Documents/CONTENEDOR/personal.hc" \
+  "$HOME/Documents/SECURE_personal"
 ```
+
+### Desmontar
+
+```bash
+# desmontar un volumen concreto
+veracrypt -d "$HOME/Documents/SECURE_personal"
+
+# o desmontar todos los volúmenes montados por VeraCrypt
+veracrypt -d
+```
+
+### Opcional (avanzado)
+
+* Si usas PIM conocido y no quieres que lo pregunte, puedes pasarlo explícitamente:
+
+```bash
+veracrypt --text --pim 123 --mount /ruta/contenedor.hc /ruta/mountpoint
+```
+
+> **Recomendación**: evita pasar contraseña en flags/argv. Deja que VeraCrypt la pida en el prompt.
 
 ---
 
-## Notas de seguridad
+## Buenas prácticas
 
-* Mantén `nosuid,nodev,noexec` en volúmenes exFAT con datos descargables.
-* Directorios necesitan bit **x**: usa `0755` (o `0700` si sólo tu usuario accederá).
-* Evita rutas montadas world-writable.
+* **No almacenes** contraseña ni PIM en texto plano ni en variables de entorno.
+* Usa puntos de montaje con permisos **0700**.
+* Comprueba qué hay montado:
+
+```bash
+veracrypt -l
+```
+
+* Antes de desconectar el disco o apagar, **desmonta**: `veracrypt -d <mount>`.
+* Copias de seguridad: conserva el contenedor `.hc` y (si procede) un **header backup**.
+* Si el contenedor se usa en varios OS, formatea su FS interno como **exFAT**/NTFS.
+* Verifica **firmas PGP** del `.deb` y valida el **fingerprint** de la clave.
 
 ---
 
 ## Solución de problemas
 
-* **No se monta al acceder:** revisa `systemctl daemon-reload` tras cambiar `fstab` y el uso de `x-systemd.automount`.
-* **Fallo por disco ausente:** confirma la presencia de `nofail` en `exfat_opts`.
-* **Permisos raros en exFAT:** ajusta `uid/gid` (usuario propietario) y `fmask/dmask`.
+* **"device is busy" al desmontar**: cierra procesos/terminales en el `mountpoint`.
+
+  * Ayudas: `lsof +D <mount>` o `fuser -vm <mount>`.
+* **Permisos denegados**: asegúrate de que `fuse3` está instalado y de montar en un directorio propio.
+* **Ruta incorrecta**: verifica que `path` apunta a un **fichero `.hc`** existente y que el disco base (exFAT) está montado.
+
+---
+
+## Notas de seguridad
+
+* Fingerprint de la clave PGP de VeraCrypt (actual):
+
+  `5069A233D55A0EEB174A5FC3821ACD02680D16DE`
+
+* Pasos típicos de verificación (resumen):
+
+  1. Descargar la clave pública y **comprobar el fingerprint**.
+  2. Importarla al *keyring* y **confiarla**.
+  3. Verificar `.sig` contra el `.deb` descargado.
+
+> El rol automatiza estos pasos, pero conviene conocerlos y revisarlos si cambias de fuente.
+
+---
+
+## Ejemplos rápidos
+
+```bash
+# montar con directorio por defecto (crear y proteger)
+mkdir -p "$HOME/Documents/SECURE_personal" && chmod 700 "$HOME/Documents/SECURE_personal"
+veracrypt --text --mount "$HOME/Documents/CONTENEDOR/personal.hc" "$HOME/Documents/SECURE_personal"
+
+# listar
+veracrypt -l
+
+# desmontar
+veracrypt -d "$HOME/Documents/SECURE_personal"
+```
+
+---
+
+## Mantenimiento
+
+* **Actualizar versión**: cambia `veracrypt_version` y URLs → vuelve a ejecutar el rol.
+* **Nuevos contenedores**: añade entradas en `veracrypt_containers` para que el rol cree los puntos de montaje (no los monta).
+* **Watch** en GitHub de VeraCrypt para estar al día de **releases** y **avisos**.
+
+---
+
+## Scope del rol
+
+* **Incluye**: instalación verificada del binario, creación de directorios seguros.
+* **Excluye (a propósito)**: auto‑montaje, helpers `sudoers`, units systemd. El montaje es manual por CLI para máxima portabilidad y control.

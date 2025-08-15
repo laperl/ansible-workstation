@@ -53,14 +53,9 @@ veracrypt_pgp_key_url: >-
 # Contenedores a montar con el wrapper "vc"
 veracrypt_containers:
   - name: "personal"
-    path: >-
-      {{
-        "/home/" ~ workstation_user ~
-        "/Documents/CONTENEDOR/SECURE/baul_desmuntat"
-      }}
-    mount: >-
-      {{ "/home/" ~ workstation_user ~ "/Documents/SECURE_veracrypt/" }}
-    pim: ""  # si usas PIM, pon el número; vacío si no
+    path: "{{ exfat_mountpoint }}/SECURE/baul_desmuntat"
+    mount: "{{ workstation_home }}/Documents/SECURE_veracrypt"
+    pim: ""  # déjalo vacío: el PIM se pedirá en runtime
 
 # ===== Storage extfat
 # Dónde montarás el disco exFAT que contiene tus contenedores VeraCrypt

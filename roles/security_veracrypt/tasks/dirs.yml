@@ -1,0 +1,11 @@
+---
+- name: Crear carpetas seguras (0700) para volúmenes descifrados
+  ansible.builtin.file:
+    path: "{{ item.mount }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: '0700'
+  loop: "{{ veracrypt_containers | default([]) }}"
+  when: veracrypt_containers | length > 0
+  become: true

@@ -1,139 +1,16 @@
 ---
-- name: "Paquetes base para verificar e instalar"
-  ansible.builtin.apt:
-    name: [gpg, gpg-agent, ca-certificates, xz-utils, fuse3]
-    state: present
-    update_cache: true
-    cache_valid_time: 3600
-  tags: [veracrypt]
+# ROLE: security_veracrypt (Opción A: VeraCrypt CLI)
 
-- name: "Preparar caché de descargas"
-  ansible.builtin.file:
-    path: /var/cache/veracrypt
-    state: directory
-    mode: '0755'
-  tags: [veracrypt]
+- name: Instalar VeraCrypt verificado (PGP)
+  ansible.builtin.import_tasks: install.yml
+  tags: [veracrypt, veracrypt_install]
 
-# 1) Obtener e importar la clave PGP oficial en un keyring aislado del rol
-- name: "Descargar clave PGP oficial de VeraCrypt (ID 0x680D16DE)"
-  ansible.builtin.get_url:
-    url: "{{ veracrypt_pgp_key_url }}"
-    dest: /var/cache/veracrypt/veracrypt_pubkey.asc
-    mode: '0644'
-  tags: [veracrypt]
+- name: Crear directorios de montaje (descifrado)
+  ansible.builtin.import_tasks: dirs.yml
+  tags: [veracrypt, veracrypt_dirs]
 
-- name: "Importar clave en keyring local del rol"
-  ansible.builtin.command:
-    argv:
-      - gpg
-      - --no-default-keyring
-      - --keyring
-      - /var/cache/veracrypt/vc.gpg
-      - --import
-      - /var/cache/veracrypt/veracrypt_pubkey.asc
-  changed_when: false
-  tags: [veracrypt]
-
-# 2) Descargar .deb y su firma .sig
-- name: "Descargar .deb oficial"
-  ansible.builtin.get_url:
-    url: "{{ veracrypt_deb_url }}"
-    dest: >-
-      {{
-        "/var/cache/veracrypt/veracrypt-" ~ veracrypt_version
-        ~ "-Ubuntu-" ~ veracrypt_series ~ "-" ~ veracrypt_arch ~ ".deb"
-      }}
-    mode: '0644'
-  tags: [veracrypt]
-
-- name: "Descargar firma PGP (.sig) del .deb"
-  ansible.builtin.get_url:
-    url: "{{ veracrypt_sig_url }}"
-    dest: >-
-      {{
-        "/var/cache/veracrypt/veracrypt-" ~ veracrypt_version
-        ~ "-Ubuntu-" ~ veracrypt_series ~ "-" ~ veracrypt_arch ~ ".deb.sig"
-      }}
-    mode: '0644'
-  tags: [veracrypt]
-
-# 3) Verificar la firma PGP del .deb con el keyring aislado
-- name: "Verificar firma PGP del .deb (debe devolver Good signature)"
-  vars:
-    security_veracrypt_pkg: >-
-      {{
-        "/var/cache/veracrypt/veracrypt-" ~ veracrypt_version
-        ~ "-Ubuntu-" ~ veracrypt_series ~ "-" ~ veracrypt_arch ~ ".deb"
-      }}
-    security_veracrypt_sig: "{{ security_veracrypt_pkg }}.sig"
-  ansible.builtin.command:
-    argv:
-      - gpg
-      - --no-default-keyring
-      - --keyring
-      - /var/cache/veracrypt/vc.gpg
-      - --verify
-      - "{{ security_veracrypt_sig }}"
-      - "{{ security_veracrypt_pkg }}"
-  register: security_veracrypt_gpg_verify
-  changed_when: false
-  failed_when: security_veracrypt_gpg_verify.rc != 0
-  tags: [veracrypt]
-
-# 4) Comprobar versión instalada (idempotencia)
-- name: "Obtener versión instalada de veracrypt (si existe)"
-  ansible.builtin.command: veracrypt --text --version
-  register: security_veracrypt_vc_ver
-  failed_when: false
-  changed_when: false
-  tags: [veracrypt]
-
-- name: "Instalar .deb si la versión difiere"
-  ansible.builtin.apt:
-    deb: >-
-      {{
-        "/var/cache/veracrypt/veracrypt-" ~ veracrypt_version
-        ~ "-Ubuntu-" ~ veracrypt_series ~ "-" ~ veracrypt_arch ~ ".deb"
-      }}
-  when: security_veracrypt_vc_ver.rc != 0
-        or (veracrypt_version not in security_veracrypt_vc_ver.stdout)
-  tags: [veracrypt]
-
-# 5) Instalar el wrapper
-- name: "Instalar wrapper /usr/local/bin/vc"
-  ansible.builtin.copy:
-    src: files/vc.sh
-    dest: /usr/local/bin/vc
-    owner: root
-    group: root
-    mode: '0755'
-  tags: [veracrypt]
-
-# 6) Servicios systemd --user por contenedor
-- name: "Crear servicios systemd --user por contenedor"
-  ansible.builtin.template:
-    src: vc.service.j2
-    dest: >-
-      {{
-        "/home/" ~ workstation_user
-        ~ "/.config/systemd/user/vc-" ~ item.name ~ ".service"
-      }}
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
-    mode: '0644'
-  loop: "{{ veracrypt_containers }}"
-  tags: [veracrypt]
-
-- name: "Habilitar servicios (requiere sesión de usuario)"
-  ansible.builtin.command:
-    argv:
-      - sudo
-      - -u
-      - "{{ workstation_user }}"
-      - systemctl
-      - --user
-      - enable
-      - "vc-{{ item.name }}.service"
-  loop: "{{ veracrypt_containers }}"
-  changed_when: false
-  tags: [veracrypt]
+# Opcional: wrapper mínimo /usr/local/bin/vc
+- name: Instalar wrapper CLI opcional
+  ansible.builtin.import_tasks: wrapper.yml
+  when: veracrypt_install_wrapper | default(false)
+  tags: [veracrypt, veracrypt_wrapper]

@@ -4,8 +4,11 @@ Description=VeraCrypt (%i) - mount user container
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/local/bin/vc mount {{ item.path }} {{ item.mount }} {{ item.pim | default('') }}
-ExecStop=/usr/local/bin/vc umount {{ item.mount }}
+# Log al journal del usuario
+StandardOutput=journal
+StandardError=journal
+ExecStart=/usr/local/bin/vc open {{ item.path }} {{ item.mount }} vc_{{ item.name }}
+ExecStop=/usr/local/bin/vc close {{ item.mount }} vc_{{ item.name }}
 
 [Install]
 WantedBy=default.target

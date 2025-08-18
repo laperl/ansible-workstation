@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+[Resolve]
+DNS={{ network_dnsdot_dns_global | join(' ') | trim }}
+{% if network_dnsdot_dns_fallback | length > 0 %}
+FallbackDNS={{ network_dnsdot_dns_fallback | join(' ') | trim }}
+{% endif %}
+Domains=~.
+DNSOverTLS=yes

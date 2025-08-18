@@ -9,16 +9,16 @@ base: ## Paquetes base + dotfiles
 dev: ## Neovim/Vim, VSCodium, pipx, tmux
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t dev
 
-containers: ## Podman/Docker (+ NVIDIA si procede)
+containers: ## Podman/Docker (+ NVIDIA si procede) (DEV NO USAR)
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t containers
 
 gaming: ## Steam/Proton/Lutris/Gamemode
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t gaming
 
-ai: ## Tooling IA mínimo NVIDIA
+ai: ## Tooling IA mínimo NVIDIA (DEV NO USAR)
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t ai
 
-security: ## ufw/fail2ban/sshd endurecido
+security: ## ufw/fail2ban/sshd endurecido (DEV NO USAR)
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t security
 
 exfat: ## Configura/actualiza el punto de montaje exFAT (fstab + automount)
@@ -26,3 +26,7 @@ exfat: ## Configura/actualiza el punto de montaje exFAT (fstab + automount)
 
 veracrypt: ## Instala/usa VeraCrypt; depende de exfat (la dependencia la tiene en cuenta ansible
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t veracrypt
+
+dns: ## Instala DNS DoT (DNS over TLS)
+	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t dns,dot,network
+

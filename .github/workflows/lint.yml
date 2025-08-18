@@ -1,14 +1,66 @@
+---
 name: ansible-lint
-on:
+
+"on":
   push:
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-      - run: pipx install ansible-lint
-      - run: ansible-lint
+          python-version: "3.12"
+
+      - name: Install ansible-lint
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-lint
+
+      - name: Cache Ansible collections and lint cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ansible/collections
+            ~/.cache/ansible-lint
+          key: >
+            collections-${{ runner.os }}-${{
+            hashFiles('**/collections/requirements.yml',
+                      '**/requirements.yml') }}
+          restore-keys: |
+            collections-${{ runner.os }}-
+
+      - name: Install Galaxy collections (with retries)
+        if: >
+          hashFiles('collections/requirements.yml') != '' ||
+          hashFiles('requirements.yml') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          req=""
+          if [ -f collections/requirements.yml ]; then
+            req="collections/requirements.yml"
+          elif [ -f requirements.yml ]; then
+            req="requirements.yml"
+          fi
+          for i in 1 2 3; do
+            ansible-galaxy collection install -r "$req" && break || {
+              echo "Retry $i/3 ..."; sleep $((i*20));
+            }
+          done
+
+      - name: Run ansible-lint (offline)
+        run: ansible-lint --offline -p --profile production

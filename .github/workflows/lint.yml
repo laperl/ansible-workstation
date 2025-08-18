@@ -1,14 +1,47 @@
+---
 name: ansible-lint
-on:
-  push:
-  pull_request:
+on: [push, pull_request]
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Python estable (pipx crea su venv igualmente)
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-      - run: pipx install ansible-lint
-      - run: ansible-lint
+          python-version: '3.12'
+
+      - name: Instalar ansible-lint (versionado)
+        run: pipx install "ansible-lint==25.8.1"
+
+      # Cachea colecciones + caché del linter
+      - name: Cache Ansible collections
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ansible/collections
+            ~/.cache/ansible-lint
+          key: ansible-collections-${{ runner.os }}-${{
+            hashFiles('**/requirements.yml') }}
+
+      # Pre-instala colecciones con backoff si existe requirements.yml
+      - name: Instalar colecciones (reintentos)
+        shell: bash
+        run: |
+          set -euo pipefail
+          REQ=$(git ls-files | grep -E '(^|/)requirements\.yml$' || true)
+          if [[ -n "$REQ" ]]; then
+            for i in 1 2 3 4 5; do
+              echo "Intento $i instalando colecciones..."
+              ansible-galaxy collection install -r "$REQ" && break || true
+              [[ $i -eq 5 ]] && { echo "Fallo permanente en Galaxy"; exit 1; }
+              sleep $((i*20))
+            done
+          else
+            echo "No hay requirements.yml; omito instalación"
+          fi
+
+      # Lint SIN tocar Galaxy
+      - name: ansible-lint (offline)
+        run: ansible-lint --offline

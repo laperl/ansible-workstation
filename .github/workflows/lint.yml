@@ -20,8 +20,9 @@ jobs:
       - name: Install ansible-lint via pipx
         run: |
           python -m pip install --user pipx
-          python -m pipx ensurepath
-          ~/.local/bin/pipx install ansible-lint
+          python -m pipx install ansible-lint
+          # Añade el bin dir de pipx al PATH para los siguientes pasos
+          echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
 
       - name: Cache Ansible collections and lint cache
         uses: actions/cache@v4
@@ -57,4 +58,4 @@ jobs:
           done
 
       - name: Run ansible-lint (offline)
-        run: ~/.local/bin/ansible-lint --offline -p --profile production
+        run: ansible-lint --offline -p --profile production

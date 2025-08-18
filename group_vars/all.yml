@@ -81,3 +81,8 @@ exfat_gid: "{{ getent_passwd[workstation_user][2] | default(omit) }}"
 # - nofail: no rompe el arranque si el disco no está presente.
 exfat_opts: >-
   uid={{ exfat_uid }},gid={{ exfat_gid }},fmask=0177,dmask=0077
+
+# ========= DNS
+# Estan configurados en defaults/main.yml,
+# Aquí escogjo entre los que haya configurados, en mi caso "cloudfare"
+dnsdot_provider: "cloudflare"  # o "quad9" | "nextdns"

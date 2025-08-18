@@ -48,3 +48,4 @@
     - {role: ssh, tags: ['ssh']}
     - {role: storage_exfat, tags: ['exfat']}
     - {role: security_veracrypt, tags: ['veracrypt']}
+    - {role: network_dnsdot, tags: ['network', 'dns', 'dot']}

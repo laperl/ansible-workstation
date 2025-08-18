@@ -1,47 +1,69 @@
 ---
 name: ansible-lint
-on: [push, pull_request]
+
+"on":
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Python estable (pipx crea su venv igualmente)
-      - uses: actions/setup-python@v5
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
+          cache: pip
 
-      - name: Instalar ansible-lint (versionado)
-        run: pipx install "ansible-lint==25.8.1"
+      - name: Install ansible-lint via pipx
+        run: |
+          python -m pip install --user pipx
+          python -m pipx ensurepath
+          ~/.local/bin/pipx install ansible-lint
 
-      # Cachea colecciones + caché del linter
-      - name: Cache Ansible collections
+      - name: Cache Ansible collections and lint cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.ansible/collections
             ~/.cache/ansible-lint
-          key: ansible-collections-${{ runner.os }}-${{
-            hashFiles('**/requirements.yml') }}
+          key: >
+            collections-${{ runner.os }}-${{
+            hashFiles('**/collections/requirements.yml',
+                      '**/requirements.yml') }}
+          restore-keys: |
+            collections-${{ runner.os }}-
 
-      # Pre-instala colecciones con backoff si existe requirements.yml
-      - name: Instalar colecciones (reintentos)
+      - name: Install Galaxy collections (with retries)
+        if: >
+          hashFiles('collections/requirements.yml') != '' ||
+          hashFiles('requirements.yml') != ''
         shell: bash
         run: |
           set -euo pipefail
-          REQ=$(git ls-files | grep -E '(^|/)requirements\.yml$' || true)
-          if [[ -n "$REQ" ]]; then
-            for i in 1 2 3 4 5; do
-              echo "Intento $i instalando colecciones..."
-              ansible-galaxy collection install -r "$REQ" && break || true
-              [[ $i -eq 5 ]] && { echo "Fallo permanente en Galaxy"; exit 1; }
-              sleep $((i*20))
-            done
-          else
-            echo "No hay requirements.yml; omito instalación"
+          req=""
+          if [ -f collections/requirements.yml ]; then
+            req="collections/requirements.yml"
           fi
+          if [ -z "$req" ] && [ -f requirements.yml ]; then
+            req="requirements.yml"
+          fi
+          for i in 1 2 3; do
+            ansible-galaxy collection install -r "$req" && break || {
+              echo "Retry $i/3 ..."; sleep $((i*20));
+            }
+          done
 
-      # Lint SIN tocar Galaxy
-      - name: ansible-lint (offline)
-        run: ansible-lint --offline
+      - name: Run ansible-lint (offline)
+        run: ~/.local/bin/ansible-lint --offline -p --profile production

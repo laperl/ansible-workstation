@@ -110,9 +110,14 @@
 # 4) Rebotar conexiones activas (down/up)
 - name: Obtener conexiones activas (UUID:DEVICE:TYPE)
   ansible.builtin.command:
-    argv: >
-      ["nmcli", "-t", "-f", "UUID,DEVICE,TYPE",
-      "connection", "show", "--active"]
+    argv:
+      - nmcli
+      - -t
+      - -f
+      - UUID,DEVICE,TYPE
+      - connection
+      - show
+      - --active
   register: network_dnsdot_active
   changed_when: false
 

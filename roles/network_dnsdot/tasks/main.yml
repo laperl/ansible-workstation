@@ -1,56 +1,85 @@
 ---
-# Preparar variables a partir del proveedor definido en defaults/group_vars
-- name: "Resolver proveedor DNSDoT a listas (global y fallback)"
+# 0) Normalizar variables a listas reales (evita el "string con corchetes")
+- name: Resolver proveedor DNSDoT a listas (global/fallback)
   ansible.builtin.set_fact:
-    network_dnsdot__provider_obj: >-
-      "{{ network_dnsdot_providers[dnsdot_provider] }}"
     network_dnsdot_dns_global: >-
-      "{{ network_dnsdot_providers[dnsdot_provider].servers | default([]) }}"
+      {{
+        (network_dnsdot_providers[network_dnsdot_provider].servers is string)
+        | ternary(
+            (network_dnsdot_providers[network_dnsdot_provider].servers |
+            ansible.builtin.from_yaml),
+            network_dnsdot_providers[network_dnsdot_provider].servers
+        )
+      }}
     network_dnsdot_dns_fallback: >-
-      "{{ network_dnsdot_providers[dnsdot_provider].fallback | default([]) }}"
+      {{
+        (network_dnsdot_providers[network_dnsdot_provider].fallback |
+        default([])) is string
+        | ternary(
+            ((network_dnsdot_providers[network_dnsdot_provider].fallback |
+            default([])) | ansible.builtin.from_yaml),
+            (network_dnsdot_providers[network_dnsdot_provider].fallback |
+            default([]))
+        )
+      }}
 
-# 1) Escribir /etc/systemd/resolved.conf con DoT global estricto
-#      Docs: resolved.conf(5) - DNS, Domains=~., DNSOverTLS=yes, FallbackDNS
-- name: Configurar /etc/systemd/resolved.conf (DoT global estricto)
-  ansible.builtin.copy:
-    dest: /etc/systemd/resolved.conf
-    mode: "0644"
-    content: |
-      [Resolve]
-      DNS={{ network_dnsdot_dns_global | join(' ') }}
-      Domains=~.
-      DNSOverTLS=yes
-      {% if network_dnsdot_dns_fallback | length > 0 -%}
-      FallbackDNS={{ network_dnsdot_dns_fallback | join(' ') }}
-      {%- endif %}
-  notify: Restart systemd-resolved
+- name: Asegurar que las variables son listas
+  ansible.builtin.assert:
+    that:
+      - network_dnsdot_dns_global is sequence
+      - network_dnsdot_dns_global | length > 0
+      - network_dnsdot_dns_fallback is sequence
+    fail_msg: >-
+      "DNS global/fallback deben ser listas YAML (no strings tipo '['...']')."
 
-# 2) Asegurar /etc/resolv.conf -> stub de systemd-resolved (recomendado)
-#  Referencia: stub-resolv.conf modo recomendado para clientes tradicionales.
-- name: Asegurar ln /etc/resolv.conf -> /run/systemd/resolve/stub-resolv.conf
+# 1) /etc/resolv.conf -> stub de resolved (recomendado)
+- name: Asegurar enlace /etc/resolv.conf->/run/systemd/resolve/stub-resolv.conf
   ansible.builtin.file:
     src: /run/systemd/resolve/stub-resolv.conf
     dest: /etc/resolv.conf
     state: link
 
-# 3) Listar conexiones de NetworkManager (NAME:UUID:TYPE)
-- name: Obtener lista de conexiones NM (NAME:UUID:TYPE)
-  ansible.builtin.command: nmcli -t -f NAME,UUID,TYPE connection show
+# 2) Escribir configuración de resolved (elige 2A o 2B)
+
+# 2A) Opción principal (un único fichero):
+# - name: Configurar /etc/systemd/resolved.conf (DoT global estricto)
+#   ansible.builtin.template:
+#     src: resolved.conf.j2
+#     dest: /etc/systemd/resolved.conf
+#     mode: "0644"
+#   notify: Restart systemd-resolved
+
+# 2B) Opción drop-in (recomendada):
+- name: Crear dir de drop-ins
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: "0755"
+
+- name: Instalar drop-in DoT con SNI
+  ansible.builtin.template:
+    src: 10-dns-over-tls.conf.j2
+    dest: /etc/systemd/resolved.conf.d/10-dns-over-tls.conf
+    mode: "0644"
+  notify: Restart systemd-resolved
+
+# 3) NetworkManager: ignorar DNS del DHCP en conexiones ethernet/wifi
+- name: Obtener lista NM (NAME:UUID:TYPE)
+  ansible.builtin.command:
+    argv: ["nmcli", "-t", "-f", "NAME,UUID,TYPE", "connection", "show"]
   register: network_dnsdot_nm_conns
   changed_when: false
 
-# 4) Construir objetos {name, uuid, type}
-- name: Construir lista de objetos de conexiones
+- name: Construir objetos {name, uuid, type}
   ansible.builtin.set_fact:
     network_dnsdot_conn_objs: >-
-      {{ (network_dnsdot_conn_objs | default([]))
-         + [{'name': (item.split(':'))[0],
-             'uuid': (item.split(':'))[1],
-             'type': (item.split(':'))[2]}] }}
+      {{ (network_dnsdot_conn_objs | default([])) + [
+        {'name': (item.split(':'))[0],
+         'uuid': (item.split(':'))[1],
+         'type': (item.split(':'))[2]} ] }}
   loop: "{{ network_dnsdot_nm_conns.stdout_lines | default([]) }}"
   when: item | length > 0
 
-# 5) Filtrar SOLO ethernet/wifi y excluir empiecen por vm, virbr0 o docker
 - name: Filtrar conexiones objetivo (ethernet/wifi) excluyendo vm/virbr0/docker
   ansible.builtin.set_fact:
     network_dnsdot_targets: >-
@@ -59,33 +88,40 @@
          | rejectattr('name', 'match', '^(vm|virbr0|docker)')
          | list }}
 
-# 6) Forzar ignorar DNS de DHCP y limpiar campos DNS por conexión
-#      Docs: nmcli ... ipv4.ignore-auto-dns yes / ipv6.ignore-auto-dns yes
 - name: Aplicar ignore-auto-dns y limpiar DNS por conexión
-  ansible.builtin.command: >
-    nmcli connection modify "{{ item.uuid }}"
-    ipv4.ignore-auto-dns yes
-    ipv6.ignore-auto-dns yes
-    ipv4.dns ""
-    ipv6.dns ""
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - modify
+      - "{{ item.uuid }}"
+      - ipv4.ignore-auto-dns
+      - "yes"
+      - ipv6.ignore-auto-dns
+      - "yes"
+      - ipv4.dns
+      - ""
+      - ipv6.dns
+      - ""
   loop: "{{ network_dnsdot_targets }}"
   changed_when: false
   tags: ['nmcli']
 
-# 7) Reaplicar conexiones activas objetivo (down/up) para que surta efecto
+# 4) Rebotar conexiones activas (down/up)
 - name: Obtener conexiones activas (UUID:DEVICE:TYPE)
-  ansible.builtin.command: >-
-    nmcli -t -f UUID,DEVICE,TYPE connection show --active
+  ansible.builtin.command:
+    argv: ["nmcli", "-t", "-f", "UUID,DEVICE,TYPE", \
+           "connection", "show", "--active"]
   register: network_dnsdot_active
   changed_when: false
 
 - name: Construir mapa de activos {uuid, device, type}
   ansible.builtin.set_fact:
     network_dnsdot_active_objs: >-
-      {{ (network_dnsdot_active_objs | default([]))
-         + [{'uuid': (item.split(':'))[0],
-             'device': (item.split(':'))[1],
-             'type': (item.split(':'))[2]}] }}
+      {{ (network_dnsdot_active_objs | default([])) + [
+        {'uuid': (item.split(':'))[0],
+         'device': (item.split(':'))[1],
+         'type': (item.split(':'))[2]} ] }}
   loop: "{{ network_dnsdot_active.stdout_lines | default([]) }}"
   when: item | length > 0
 
@@ -97,40 +133,49 @@
          map(attribute='uuid') | list))
          | list }}
 
-- name: Reaplicar (down/up) conexiones activas objetivo
-  ansible.builtin.command: nmcli connection down "{{ item.uuid }}"
+- name: Down conexiones objetivo
+  ansible.builtin.command:
+    argv: ["nmcli", "connection", "down", "{{ item.uuid }}"]
   loop: "{{ network_dnsdot_bounce }}"
   register: network_dnsdot_down
   changed_when: true
   failed_when: false
   tags: ['nmcli']
 
-- name: Subir conexiones activas objetivo
-  ansible.builtin.command: nmcli connection up "{{ item.uuid }}"
+- name: Up conexiones objetivo
+  ansible.builtin.command:
+    argv: ["nmcli", "connection", "up", "{{ item.uuid }}"]
   loop: "{{ network_dnsdot_bounce }}"
   register: network_dnsdot_up
   changed_when: true
   failed_when: false
   tags: ['nmcli']
 
-# 8) (Opcional) Revert configuración per-link en resolved (por dispositivo)
+# 5) (Opcional) Limpiar restos per-link en resolved
 - name: Extraer dispositivos de las conexiones rebotadas
   ansible.builtin.set_fact:
     network_dnsdot_devices: >-
       {{ (network_dnsdot_active_objs | selectattr('uuid','in',
-      (network_dnsdot_bounce | map(attribute='uuid') | list))
+         (network_dnsdot_bounce | map(attribute='uuid') | list))
          | map(attribute='device') | list) | unique }}
 
-- name: Hacer resolvectl revert por dispositivo para limpiar restos per-link
-  ansible.builtin.command: resolvectl revert "{{ item }}"
+- name: Resolvectl revert por dispositivo
+  ansible.builtin.command:
+    argv: ["resolvectl", "revert", "{{ item }}"]
   loop: "{{ network_dnsdot_devices | default([]) }}"
   register: network_dnsdot_revert
   changed_when: false
   failed_when: false
 
-# 9) Reiniciar systemd-resolved (por si no saltó handler)
-- name: Reiniciar systemd-resolved
+# 6) Asegurar servicio
+- name: Asegurar y reiniciar systemd-resolved
   ansible.builtin.systemd:
     name: systemd-resolved
     state: restarted
     enabled: true
+
+# Handlers
+- name: Restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted

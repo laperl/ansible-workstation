@@ -103,3 +103,12 @@
       loop: "{{ dotfiles_packages }}"
       changed_when: false
       tags: ['dotfiles']
+
+# 8) Instalo sops para manejar secretos
+- name: Instalar SOPS en el controlador
+  ansible.builtin.include_role:
+    name: community.sops.install
+  vars:
+    sops_install_on_localhost: true
+    sops_source: auto
+  tags: ['sops']

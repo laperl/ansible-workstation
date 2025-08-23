@@ -44,6 +44,12 @@ fi
 
 has_bin ansible-lint || pipx install --python "$PYBIN" "ansible-lint~=25.7"
 has_bin yamllint     || pipx install --python "$PYBIN" "yamllint~=1.37"
+# 5b) Inyectar dependencias Python requeridas por filtros (json_query -> jmespath)
+#     Esto instala jmespath dentro del venv de pipx de ansible-core.
+pipx inject ansible-core jmespath
+
+# (Opcional) Verificar que quedó instalado en ese venv
+pipx runpip ansible-core show jmespath || true
 
 # 6) Colecciones Galaxy (si las declaras en requirements.yml)
 if [ -f requirements.yml ]; then
@@ -58,5 +64,6 @@ if [ -d ".git" ] && [ -f ".pre-commit-config.yaml" ]; then
 fi
 
 # 8) Primer run por áreas seguras
-ansible-playbook -i inventories/local/hosts.yml site.yml -K -t base,dev
+#ansible-playbook -i inventories/local/hosts.yml site.yml -K -t base,dev
+ansible-playbook -i inventories/local/hosts.yml site.yml -K -t base
 

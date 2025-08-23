@@ -28,5 +28,10 @@ veracrypt: ## Instala/usa VeraCrypt; depende de exfat (la dependencia la tiene e
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t veracrypt
 
 dns: ## Instala DNS DoT (DNS over TLS)
-	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t dns,dot,network
+	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t dns,dot
 
+vpn: ## Instala wireguard para usar la VPN de protonvpn
+	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t vpn,wg
+
+network: ## Instala "dns", "vpn"
+	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t network

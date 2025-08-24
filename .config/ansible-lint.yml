@@ -1,0 +1,7 @@
+---
+# .config/ansible-lint.yml
+exclude_paths:
+  - "secrets/"        # rutas relativas a este fichero
+# (opcional) si quieres rebajar a warning alguna regla:
+# warn_list:
+#   - yaml[line-length]

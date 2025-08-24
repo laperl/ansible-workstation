@@ -15,16 +15,35 @@ dotfiles_packages:
   - vim
   - tmux
 
+# ================ Variables globales
 # Usuario workstation por defecto:
 # - Si se ejecuta con sudo: SUDO_USER
 # - Si no, ansible_user_id
-workstation_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
+workstation_facts_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
 
-# HOME del usuario (por si falla la resolución automática)
-# Se sobreescribe en pre_tasks vía getent (ver site.yml)
-workstation_home: >-
-  {{ '/root' if workstation_user == 'root'
-  else '/home/' + workstation_user }}
+# ===== Storage extfat
+# Dónde montarás el disco exFAT que contiene tus contenedores VeraCrypt
+exfat_mountpoint: "{{ workstation_facts_home }}/Documents/CONTENEDOR"
+exfat_fstype: "exfat"
+
+# Identificador del volumen. Elige uno:
+# exfat_src: "LABEL=CONTENEDOR"  # Recomendado: etiqueta constante (exfatlabel)
+# exfat_src: "UUID=XXXX-XXXX"    # Alternativa: UUID estático del volumen
+exfat_src: "PARTUUID=9212a821-39c4-4c60-adfc-01941dcd9abf"  # sudo blkid
+
+# Propietario efectivo al montar exFAT (no hay permisos POSIX nativos);
+# tomamos UID/GID del usuario real de la workstation (sin shell/cmd).
+exfat_uid: "{{ workstation_facts_uid }}"
+exfat_gid: "{{ workstation_facts_gid }}"
+
+# Opciones de montaje seguras y prácticas:
+# - uid/gid,fmask,dmask: emulan permisos para FAT/exFAT (sin bits POSIX).
+# - nosuid,nodev,noexec,noatime: hardening básico.
+# - x-systemd.automount + idle-timeout: automonta bajo demanda y se
+#   “desactiva” si no se usa.
+# - nofail: no rompe el arranque si el disco no está presente.
+exfat_opts: >-
+  uid={{ exfat_uid }},gid={{ exfat_gid }},fmask=0177,dmask=0077
 
 # ===== VeraCrypt (instalación .deb oficial con verificación PGP) =====
 veracrypt_version: "1.26.24"  # la que tengas fijada
@@ -55,32 +74,8 @@ veracrypt_pgp_key_url: >-
 veracrypt_containers:
   - name: "personal"
     path: "{{ exfat_mountpoint }}/SECURE/baul_desmuntat"
-    mount: "{{ workstation_home }}/Documents/SECURE_veracrypt"
+    mount: "{{ workstation_facts_home }}/Documents/SECURE_veracrypt"
     pim: ""  # déjalo vacío: el PIM se pedirá en runtime
-
-# ===== Storage extfat
-# Dónde montarás el disco exFAT que contiene tus contenedores VeraCrypt
-exfat_mountpoint: "{{ workstation_home }}/Documents/CONTENEDOR"
-exfat_fstype: "exfat"
-
-# Identificador del volumen. Elige uno:
-# exfat_src: "LABEL=CONTENEDOR"  # Recomendado: etiqueta constante (exfatlabel)
-# exfat_src: "UUID=XXXX-XXXX"    # Alternativa: UUID estático del volumen
-exfat_src: "PARTUUID=9212a821-39c4-4c60-adfc-01941dcd9abf"  # sudo blkid
-
-# Propietario efectivo al montar exFAT (no hay permisos POSIX nativos);
-# tomamos UID/GID del usuario real de la workstation (sin shell/cmd).
-exfat_uid: "{{ getent_passwd[workstation_user][1] | default(omit) }}"
-exfat_gid: "{{ getent_passwd[workstation_user][2] | default(omit) }}"
-
-# Opciones de montaje seguras y prácticas:
-# - uid/gid,fmask,dmask: emulan permisos para FAT/exFAT (sin bits POSIX).
-# - nosuid,nodev,noexec,noatime: hardening básico.
-# - x-systemd.automount + idle-timeout: automonta bajo demanda y se
-#   “desactiva” si no se usa.
-# - nofail: no rompe el arranque si el disco no está presente.
-exfat_opts: >-
-  uid={{ exfat_uid }},gid={{ exfat_gid }},fmask=0177,dmask=0077
 
 # ========= DNS
 # Estan configurados en defaults/main.yml,

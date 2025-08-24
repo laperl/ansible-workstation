@@ -1,0 +1,80 @@
+---
+# ============================================================
+# Rol: workstation_facts
+# Calcula usuario, UID, GID y HOME reales de la workstation
+# ============================================================
+
+- name: "Resolver usuario de la workstation"
+  ansible.builtin.set_fact:
+    workstation_facts_user: >-
+      "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
+  tags: ['always']
+
+# Caso 1: workstation_facts_user == ansible_user_id
+# Podemos usar directamente ansible_uid/gid/home
+- name: "Fijar UID/GID/HOME del usuario (directo)"
+  ansible.builtin.set_fact:
+    workstation_facts_uid: "{{ ansible_uid }}"
+    workstation_facts_gid: "{{ ansible_gid }}"
+    workstation_facts_home: "{{ ansible_env.HOME }}"
+  when: workstation_facts_user == ansible_user_id
+  tags: ['always']
+
+# Caso 2: workstation_facts_user != ansible_user_id (ej. ejecutas con sudo)
+# Necesitamos consultar /etc/passwd
+- name: "Cargar getent passwd del usuario"
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ workstation_facts_user }}"
+  when: workstation_facts_user != ansible_user_id
+  tags: ['always']
+
+- name: "Fijar UID/GID/HOME del usuario (getent)"
+  ansible.builtin.set_fact:
+    workstation_facts_uid: "{{ getent_passwd[workstation_facts_user][1] }}"
+    workstation_facts_gid: "{{ getent_passwd[workstation_facts_user][2] }}"
+    workstation_facts_home: "{{ getent_passwd[workstation_facts_user][4] }}"
+  when: workstation_facts_user != ansible_user_id
+  tags: ['always']
+
+- name: "Sanity check de HOME"
+  ansible.builtin.assert:
+    that:
+      - workstation_facts_home is string
+      - workstation_facts_home.startswith('/home/') or
+        workstation_facts_home == '/root'
+    fail_msg: >-
+      "workstation_facts_home={{ workstation_facts_home }}
+      no parece un HOME válido; revisa índices de getent."
+  tags: ['always']
+
+# Verificación de HOME
+- name: "Comprobar que el HOME existe"
+  ansible.builtin.stat:
+    path: "{{ workstation_facts_home }}"
+  register: workstation_facts_home_stat
+  tags: ['always']
+
+- name: "Abort si el HOME no existe"
+  ansible.builtin.assert:
+    that: workstation_facts_home_stat.stat.exists
+    fail_msg: >-
+      El HOME {{ workstation_facts_home }} no existe.
+      Ajusta workstation_facts_user.
+  tags: ['always']
+
+# Opcional: habilitar linger
+- name: "Comprobar si linger está habilitado"
+  become: true
+  ansible.builtin.stat:
+    path: "/var/lib/systemd/linger/{{ workstation_facts_user }}"
+  register: workstation_facts_linger_mark
+  tags: ['always']
+
+- name: "Habilitar linger para {{ workstation_facts_user }}"
+  become: true
+  ansible.builtin.command:
+    argv: ["/usr/bin/loginctl", "enable-linger", "{{ workstation_facts_user }}"]
+  when: not workstation_facts_linger_mark.stat.exists
+  changed_when: true
+  tags: ['always']

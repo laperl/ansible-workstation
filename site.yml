@@ -1,44 +1,18 @@
 ---
-
 - name: "PopOS Workstation"
   hosts: all
   become: true
 
-  pre_tasks:
-    - name: "Resolver usuario objetivo efectivo"
-      ansible.builtin.set_fact:
-        workstation_user: >-
-          "{{ workstation_user
-             | default(ansible_env.SUDO_USER
-             | default(ansible_user_id)) }}"
-
-    - name: "Obtener entrada passwd del usuario"
-      ansible.builtin.command: "getent passwd {{ workstation_user }}"
-      register: pw_line
-      changed_when: false
-
-    - name: "Calcular workstation_home desde getent"
-      ansible.builtin.set_fact:
-        # Campos passwd: 0:usuario 1:x 2:uid 3:gid 4:gecos 5:home 6:shell
-        workstation_home: >-
-          "{{ (pw_line.stdout.split(':'))[5] | default(workstation_home) }}"
-
-    - name: "Comprobar que el HOME existe"
-      ansible.builtin.stat:
-        path: "{{ workstation_home }}"
-      register: home_stat
-
-    - name: "Abort si el HOME no existe"
-      ansible.builtin.assert:
-        that: home_stat.stat.exists
-        fail_msg: >-
-          El HOME {{ workstation_home }} no existe. Ajusta
-          workstation_user/workstation_home en group_vars/all.yml.
-
+  # Variables cifradas globales (opcional si está vacío)
   vars_files:
     - secrets/vars.sops.yaml      # cifrado con SOPS (opcional si vacío)
 
   roles:
+    # Aquest primer es necesari, ja que carrega variables
+    # com el usuari i uid del usuari que llança el playbook
+    - {role: workstation_facts, tags: ['always']}
+
+    # Roles opcionals
     - {role: base, tags: ['base']}
     - {role: devtools, tags: ['dev']}
     - {role: containers, tags: ['containers']}
@@ -49,3 +23,10 @@
     - {role: storage_exfat, tags: ['exfat']}
     - {role: security_veracrypt, tags: ['veracrypt']}
     - {role: network_dnsdot, tags: ['network', 'dns', 'dot']}
+
+    # IMPORTANTE: este role usa systemd --user (scope: user) y depende de:
+    # - workstation_facts_uid/workstation_facts_home (calculados arriba)
+    # - linger habilitado (para que exista el bus de usuario)
+    - {role: network_wg_protonvpn,
+       when: wg_instances is defined and (wg_instances | length) > 0,
+       tags: ['network', 'vpn', 'wg']}

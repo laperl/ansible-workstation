@@ -27,6 +27,3 @@
     # IMPORTANTE: este role usa systemd --user (scope: user) y depende de:
     # - workstation_facts_uid/workstation_facts_home (calculados arriba)
     # - linger habilitado (para que exista el bus de usuario)
-    - {role: network_wg_protonvpn,
-       when: wg_instances is defined and (wg_instances | length) > 0,
-       tags: ['network', 'vpn', 'wg']}

@@ -66,8 +66,8 @@ ansible-playbook -i inventories/example/hosts.yml site.yml -K
 
 ```yaml
 # Usuario destino y HOME (instalación en su $HOME aunque uses sudo)
-workstation_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
-workstation_home: "{{ '/root' if workstation_user == 'root' else '/home/' + workstation_user }}"
+workstation_facts_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
+workstation_facts_home: "{{ '/root' if workstation_facts_user == 'root' else '/home/' + workstation_facts_user }}"
 
 # Editor CLI (por defecto Neovim)
 cli_editor: "nvim"            # nvim | vim
@@ -92,32 +92,32 @@ Cambia aquí y vuelve a ejecutar con `make` o `ansible-playbook`.
 
 ## Usuario objetivo (HOME correcto con sudo)
 
-Cuando el play se ejecuta con `become: true`, los *facts* pueden apuntar a `/root`. Para que los roles escriban siempre en el **HOME del usuario real**, el play resuelve `workstation_user` y `workstation_home` al inicio:
+Cuando el play se ejecuta con `become: true`, los *facts* pueden apuntar a `/root`. Para que los roles escriban siempre en el **HOME del usuario real**, el play resuelve `workstation_facts_user` y `workstation_facts_home` al inicio:
 
 ```yaml
 # site.yml (extracto)
 pre_tasks:
   - name: Resolver usuario efectivo
     set_fact:
-      workstation_user: "{{ workstation_user | default(ansible_env.SUDO_USER | default(ansible_user_id)) }}"
+      workstation_facts_user: "{{ workstation_facts_user | default(ansible_env.SUDO_USER | default(ansible_user_id)) }}"
 
   - name: HOME del usuario por getent
-    command: "getent passwd {{ workstation_user }}"
+    command: "getent passwd {{ workstation_facts_user }}"
     register: pw
     changed_when: false
 
-  - name: Fijar workstation_home
+  - name: Fijar workstation_facts_home
     set_fact:
-      workstation_home: "{{ (pw.stdout.split(':'))[5] }}"
+      workstation_facts_home: "{{ (pw.stdout.split(':'))[5] }}"
 ```
 
-> Los roles usan `workstation_home` en todas las tareas de usuario y esas tareas llevan `become: false`.
+> Los roles usan `workstation_facts_home` en todas las tareas de usuario y esas tareas llevan `become: false`.
 
 **Comprobación rápida**:
 
 ```bash
-echo "user=$workstation_user home=$workstation_home"
-test -d "$workstation_home/.local/bin" || echo "se creará en devtools"
+echo "user=$workstation_facts_user home=$workstation_facts_home"
+test -d "$workstation_facts_home/.local/bin" || echo "se creará en devtools"
 ```
 
 ---
@@ -266,4 +266,3 @@ sops secrets/vars.sops.yaml
 * **Core estable**: roles con tareas agnósticas; variaciones por `vars/`.
 * **Ejecución por tags**: rapidez y foco.
 * **Documentación viva**: este README es tu recordatorio después de meses.
-

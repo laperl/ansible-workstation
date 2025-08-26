@@ -28,7 +28,7 @@ Configura un punto de montaje **exFAT** estable para alojar contenedores VeraCry
 ```yaml
 defaults:
   # Dónde montar el disco exFAT
-  exfat_mountpoint: "{{ workstation_home }}/Documents/CONTENEDOR"
+  exfat_mountpoint: "{{ workstation_facts_home }}/Documents/CONTENEDOR"
   exfat_fstype: "exfat"
 
   # Identificador del volumen. Elige **uno**:
@@ -37,8 +37,8 @@ defaults:
 
   # Propietario efectivo al montar exFAT (uid/gid del usuario real)
   # Se resuelven automáticamente con getent
-  exfat_uid: "{{ getent_passwd[workstation_user][1] | default(omit) }}"
-  exfat_gid: "{{ getent_passwd[workstation_user][2] | default(omit) }}"
+  exfat_uid: "{{ getent_passwd[workstation_facts_user][1] | default(omit) }}"
+  exfat_gid: "{{ getent_passwd[workstation_facts_user][2] | default(omit) }}"
 
   # Opciones de montaje seguras/prácticas
   exfat_opts: >-
@@ -63,14 +63,14 @@ defaults:
 - name: Resolver UID/GID del usuario con getent
   ansible.builtin.getent:
     database: passwd
-    key: "{{ workstation_user }}"
+    key: "{{ workstation_facts_user }}"
 
 - name: Crear punto de montaje exFAT
   ansible.builtin.file:
     path: "{{ exfat_mountpoint }}"
     state: directory
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    owner: "{{ workstation_facts_user }}"
+    group: "{{ workstation_facts_user }}"
     mode: '0755'
   become: true
 

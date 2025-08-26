@@ -37,7 +37,7 @@ veracrypt_pgp_key_url: "https://amcrypto.jp/VeraCrypt/VeraCrypt_PGP_public_key.a
 veracrypt_containers:
   - name: "personal"
     path: "{{ exfat_mountpoint }}/personal.hc"               # fichero .hc
-    mount: "{{ workstation_home }}/Documents/SECURE_personal" # sin "/" final
+    mount: "{{ workstation_facts_home }}/Documents/SECURE_personal" # sin "/" final
     pim: ""  # déjalo vacío: se pedirá en runtime si procede
 ```
 

@@ -85,4 +85,3 @@ resolvectl statistics
 
 * [systemd-resolved manpage](https://www.freedesktop.org/software/systemd/man/resolved.conf.html)
 * [DNS Privacy (DNS-over-TLS)](https://dnsprivacy.org/)
-

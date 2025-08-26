@@ -21,7 +21,7 @@ __pycache__/
 .ansible/
 .ansible_async/
 # si usas facts cache en disco, ignóralo:
-# facts/                 
+# facts/
 
 # --- STOW / DOTFILES ---
 # Stow no debería generar archivos aquí, pero por si acaso:

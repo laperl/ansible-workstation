@@ -1,3 +1,4 @@
+---
 - name: Steam (Flatpak)
   community.general.flatpak:
     name: com.valvesoftware.Steam

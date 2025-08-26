@@ -169,4 +169,3 @@ ssh-add -D
 # Ver socket del agente
 echo $SSH_AUTH_SOCK
 ```
-

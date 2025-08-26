@@ -66,4 +66,3 @@ fi
 # 8) Primer run por áreas seguras
 #ansible-playbook -i inventories/local/hosts.yml site.yml -K -t base,dev
 ansible-playbook -i inventories/local/hosts.yml site.yml -K -t base
-

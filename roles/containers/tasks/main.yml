@@ -18,11 +18,11 @@
     state: present
   tags: ['containers']
 
-- name: "Añadir usuario al grupo docker ({{ workstation_user }})"
+- name: "Añadir usuario al grupo docker ({{ workstation_facts_user }})"
   when: container_runtime == "docker"
   become: true
   ansible.builtin.user:
-    name: "{{ workstation_user }}"
+    name: "{{ workstation_facts_user }}"
     groups: docker
     append: true
   tags: ['containers']

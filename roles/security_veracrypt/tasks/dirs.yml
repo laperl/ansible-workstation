@@ -3,8 +3,8 @@
   ansible.builtin.file:
     path: "{{ item.mount }}"
     state: directory
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    owner: "{{ workstation_facts_user }}"
+    group: "{{ workstation_facts_user }}"
     mode: '0700'
   loop: "{{ veracrypt_containers | default([]) }}"
   when: veracrypt_containers | length > 0

@@ -1,15 +1,48 @@
 ---
-# .pre-commit-config.yaml
+ci:
+  # Pre-commit.ci auto-actualiza mensualmente (opcional)
+  autoupdate_schedule: monthly
+
 repos:
-  - repo: local
+  # 1) Ansible Lint (hook oficial)
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v25.8.2
     hooks:
       - id: ansible-lint
-        name: ansible-lint
-        entry: ansible-lint
-        language: system
-        types: [yaml]
+        args: ["-c", ".config/ansible-lint.yml"]
+        # Limita el alcance a rutas típicas de Ansible
+        files: |
+          (?x)^(
+            ansible\.cfg|
+            (playbooks|roles|tasks|handlers|group_vars|host_vars|inventory|collections|plugins)/.*\.(yml|yaml)|
+            (site|main|playbook).*\.ya?ml
+          )$
+        # Excluye secretos SOPS y todo secrets/**
+        exclude: '(^(secrets/))|(.*\.sops\.ya?ml$)'
+        # Si tu repo necesita el bundle "ansible" en el venv del hook,
+        # descomenta (ver doc oficial):
+        # additional_dependencies:
+        #   - ansible
+        #   # o si prefieres ansible-core pinned:
+        #   # - ansible-core==2.16.7
+
+  # 2) Yamllint (hook oficial)
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.1
+    hooks:
       - id: yamllint
-        name: yamllint
-        entry: yamllint
-        language: system
-        types: [yaml]
+        # Usa tu .yamllint del repo; --strict es buena práctica
+        args: [--strict]
+        files: \.(yml|yaml)$
+        exclude: |
+          (?x)(
+            ^secrets/|
+            \.sops\.ya?ml$
+          )
+
+  # 3) Hygiene básica (opcional, pero útil)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace

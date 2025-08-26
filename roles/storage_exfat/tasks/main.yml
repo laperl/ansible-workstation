@@ -1,16 +1,10 @@
 ---
-- name: "Resolver UID/GID del usuario objetivo de forma portable (getent)"
-  ansible.builtin.getent:
-    database: passwd
-    key: "{{ workstation_user }}"
-  tags: [exfat]
-
 - name: "Crear punto de montaje para exFAT (CONTENEDOR)"
   ansible.builtin.file:
     path: "{{ exfat_mountpoint }}"
     state: directory
-    owner: "{{ workstation_user }}"
-    group: "{{ workstation_user }}"
+    owner: "{{ workstation_facts_user }}"
+    group: "{{ workstation_facts_user }}"
     mode: '0755'
   become: true
   tags: [exfat]

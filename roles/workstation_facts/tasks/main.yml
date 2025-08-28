@@ -7,7 +7,8 @@
 - name: "Resolver usuario de la workstation"
   ansible.builtin.set_fact:
     workstation_facts_user: >-
-      "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
+      {{ ansible_env.SUDO_USER | default(ansible_user_id, true) |
+      string | trim }}
   tags: ['always']
 
 # Caso 1: workstation_facts_user == ansible_user_id
@@ -18,6 +19,17 @@
     workstation_facts_gid: "{{ ansible_gid }}"
     workstation_facts_home: "{{ ansible_env.HOME }}"
   when: workstation_facts_user == ansible_user_id
+  tags: ['always']
+
+- name: "DEBUG: quién es workstation_facts_user y fuentes"
+  ansible.builtin.debug:
+    msg:
+      - "workstation_facts_user={{ workstation_facts_user |
+        default('UNDEFINED') | quote }}"
+      - "ansible_env.SUDO_USER={{ ansible_env.SUDO_USER |
+        default('UNDEFINED') | quote }}"
+      - "ansible_user_id={{ ansible_user_id | default('UNDEFINED') | quote }}"
+      - "type(workstation_facts_user)={{ workstation_facts_user | type_debug }}"
   tags: ['always']
 
 # Caso 2: workstation_facts_user != ansible_user_id (ej. ejecutas con sudo)

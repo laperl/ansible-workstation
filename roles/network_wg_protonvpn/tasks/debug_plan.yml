@@ -1,0 +1,18 @@
+---
+- name: "Resumen del plan de despliegue"
+  ansible.builtin.debug:
+    msg:
+      name: "{{ item.name }}"
+      autostart: "{{ item.autostart }}"
+      wg_conf_sops: "{{ item.wg_conf_sops }}"
+      wg_if: "{{ item.wg_if }}"
+      netns: "{{ item.name }}"
+      subnet_p2p: "{{ item.subnet_p2p }}"
+      host_ip: "{{ item.host_ip }}"
+      ns_ip: "{{ item.ns_ip }}"
+      dns_ns: "{{ item.dns_ns | default('usará DNS del conf') }}"
+      wan_if: "{{ item.wan_if | default('auto') }}"
+      endpoint_override: "{{ item.endpoint_override | default('') }}"
+  loop: "{{ network_wg_protonvpn_instances }}"
+  loop_control:
+    label: "{{ item.name }}"

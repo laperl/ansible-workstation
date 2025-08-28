@@ -1,0 +1,24 @@
+---
+# yamllint disable rule:line-length
+
+# Lista de instancias VPN (cada una en su propio netns)
+network_wg_protonvpn_instances:
+  - name: "vpn1"                 # nombre del netns y de la instancia
+    autostart: true              # true -> systemd enable --now; false -> manual
+    wg_conf_sops: "/etc/wireguard/proton/vpn1.conf.sops"  # fichero cifrado SOPS (wg-quick)
+    wg_if: "wg0"                 # interfaz wireguard dentro del netns
+    subnet_p2p: "192.168.254.0/30"  # /30 point-to-point para veth
+    host_ip: "192.168.254.1"     # IP en el host (gateway del ns)
+    ns_ip: "192.168.254.2"       # IP dentro del netns (veth ns)
+    dns_ns: "10.2.0.1"           # DNS dentro del ns; si vacío, usar del conf original
+    wan_if: ""                   # interfaz WAN; "" -> detectar automáticamente
+    endpoint_override: ""        # host:port opcional para forzar endpoint
+
+# Comportamiento global del role
+network_wg_protonvpn_global:
+  ip_forward_persistent: true    # asegura net.ipv4.ip_forward=1 de forma persistente
+  iptables_manage_nat: false     # en Punto 1 no tocaremos NAT; se hará en iteración posterior
+  iptables_nat_subnets: []       # lista de subredes a masqueradear (se poblará más adelante)
+  systemd_unit_name: "wg-ns@.service"  # nombre base de la unidad template
+
+# yamllint enable rule:line-length

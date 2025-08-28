@@ -23,7 +23,4 @@
     - {role: storage_exfat, tags: ['exfat']}
     - {role: security_veracrypt, tags: ['veracrypt']}
     - {role: network_dnsdot, tags: ['network', 'dns', 'dot']}
-
-    # IMPORTANTE: este role usa systemd --user (scope: user) y depende de:
-    # - workstation_facts_uid/workstation_facts_home (calculados arriba)
-    # - linger habilitado (para que exista el bus de usuario)
+    - {role: network_wg_protonvpn, tags: ['network', 'wg', 'vpn', 'protonvpn']}

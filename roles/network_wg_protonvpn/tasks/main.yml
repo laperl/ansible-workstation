@@ -1,0 +1,6 @@
+---
+- name: "Network_wg_protonvpn | Validar variables de entrada"
+  ansible.builtin.import_tasks: validate_vars.yml
+
+- name: "Network_wg_protonvpn | Mostrar plan de despliegue (dry-run inicial)"
+  ansible.builtin.import_tasks: debug_plan.yml

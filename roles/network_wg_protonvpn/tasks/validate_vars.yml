@@ -1,0 +1,24 @@
+---
+- name: "Validar estructura de variables: network_wg_protonvpn_instances"
+  ansible.builtin.assert:
+    that:
+      - network_wg_protonvpn_instances is iterable
+      - network_wg_protonvpn_instances | length > 0
+    fail_msg: >-
+      "Debes definir al menos una instancia en network_wg_protonvpn_instances."
+
+- name: "Validar cada instancia (campos obligatorios)"
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[a-zA-Z0-9_-]+$')
+      - item.wg_conf_sops | length > 0
+      - item.wg_if | length > 0
+      - item.subnet_p2p is match('^\\d+\\.\\d+\\.\\d+\\.\\d+/\\d+$')
+      - item.host_ip is match('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
+      - item.ns_ip is match('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
+    fail_msg: >-
+      "Instancia inválida: revisa name, wg_conf_sops, wg_if, subnet_p2p,
+        host_ip, ns_ip."
+  loop: "{{ network_wg_protonvpn_instances }}"
+  loop_control:
+    label: "{{ item.name }}"

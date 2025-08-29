@@ -4,3 +4,9 @@
 
 - name: "Network_wg_protonvpn | Mostrar plan de despliegue (dry-run inicial)"
   ansible.builtin.import_tasks: debug_plan.yml
+
+- name: "Network_wg_protonvpn | Preparar confs WireGuard (SOPS + strip)"
+  ansible.builtin.include_tasks: prepare_conf.yml
+  loop: "{{ network_wg_protonvpn_instances }}"
+  loop_control:
+    loop_var: instance

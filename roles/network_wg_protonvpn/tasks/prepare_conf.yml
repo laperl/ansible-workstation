@@ -1,0 +1,108 @@
+---
+# Este fichero NO lleva loop. Se incluye desde tasks/main.yml con:
+# include_tasks: prepare_conf.yml
+# loop: "{{ network_wg_protonvpn_instances }}"
+# loop_control: { loop_var: instance }
+
+- name: "Preparar conf (wg-quick) para la instancia"
+  vars:
+    # 1) Desencripta el .conf (wg-quick) en el controlador
+    decrypted_conf: "{{ lookup('community.sops.sops', instance.wg_conf_sops) }}"
+
+    # 2) Extrae Address y DNS (pueden ser listas separadas por comas)
+    wg_addr_line: >-
+      {{
+        (decrypted_conf
+        | regex_search('^Address\\s*=\\s*([^\\n]+)', '\\1', multiline=True))
+        | default('')
+      }}
+    dns_line: "{{ (decrypted_conf | regex_search('^DNS\\s*=\\s*([^\\n]+)', '\\1', multiline=True)) | default('') }}"
+
+    # 3) Derivar nombre corto desde el sops:
+    #    - basename: repos-wgproton.conf.sops.yaml
+    #    - quitar sufijos .sops.yaml / .yaml / .yml
+    #    - quitar .conf final si quedara
+    #    - sanear caracteres a [A-Za-z0-9_=+.-] (otros -> '-')
+    #    - truncar a 15 (límite de interfaz Linux)
+    sops_base_raw: >-
+      {{
+        (instance.wg_conf_sops | basename)
+        | regex_replace('\\.sops\\.ya?ml$', '')
+        | regex_replace('\\.ya?ml$', '')
+        | regex_replace('\\.conf$', '')
+      }}
+    sops_base_sane: "{{ sops_base_raw | regex_replace('[^A-Za-z0-9_+=\\.-]', '-') }}"
+    sops_base_15: "{{ sops_base_sane | regex_replace('^(.{0,15}).*', '\\1') }}"
+    short_base: "{{ (sops_base_15 | length > 0) | ternary(sops_base_15, instance.wg_if) }}"
+
+    # 4) wg-quick requiere basename válido <=15 + '.conf'
+    short_conf_path: "/tmp/{{ short_base }}conf"
+  block:
+
+    - name: "Crear tmp aleatorio para conf desencriptada"
+      ansible.builtin.tempfile:
+        state: file
+        suffix: ".conf"
+      register: network_wg_protonvpn_decrypted_tmp
+      no_log: true
+
+    - name: "Escribir conf desencriptada"
+      ansible.builtin.copy:
+        content: "{{ decrypted_conf }}"
+        dest: "{{ network_wg_protonvpn_decrypted_tmp.path }}"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: "Copiar a nombre corto válido para wg-quick ({{ short_conf_path }})"
+      ansible.builtin.copy:
+        src: "{{ network_wg_protonvpn_decrypted_tmp.path }}"
+        dest: "{{ short_conf_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+        remote_src: true
+      no_log: true
+
+    - name: "Crear tmp para conf purificada (wg-quick strip)"
+      ansible.builtin.tempfile:
+        state: file
+        suffix: "_purowg.conf"
+      register: network_wg_protonvpn_purowg_tmp
+      no_log: true
+
+    - name: "Generar conf purificada con wg-quick strip"
+      ansible.builtin.shell: |
+        set -o pipefail
+        wg-quick strip "{{ short_conf_path }}" > "{{ network_wg_protonvpn_purowg_tmp.path }}"
+      args:
+        executable: /bin/bash
+      changed_when: false
+      no_log: true
+
+    - name: "Guardar facts de la instancia"
+      vars:
+        _purowg_path: "{{ network_wg_protonvpn_purowg_tmp.path }}"
+        _decrypted_path: "{{ network_wg_protonvpn_decrypted_tmp.path }}"
+      ansible.builtin.set_fact:
+        network_wg_protonvpn_facts: >-
+          {{ (network_wg_protonvpn_facts | default({})) |
+             ansible.builtin.combine({
+               instance.name: {
+                 "purowg_conf": _purowg_path,
+                 "decrypted_conf": _decrypted_path,
+                 "wg_addr": wg_addr_line,
+                 "dns_original": dns_line,
+                 "short_conf_path": short_conf_path,
+                 "short_base": short_base
+               }
+             }, recursive=True)
+          }}
+      no_log: true
+
+  always:
+    - name: "Borrar fichero corto temporal de wg-quick"
+      ansible.builtin.file:
+        path: "{{ short_conf_path }}"
+        state: absent

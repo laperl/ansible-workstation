@@ -3,7 +3,7 @@ network_wg_protonvpn_instances:
   - name: "vpn1"
     autostart: true
     wg_conf_sops: >-
-      "{{ playbook_dir }}/secrets/wg-protonvpn/repos-wgproton.conf.sops.yaml"
+      {{ playbook_dir }}/secrets/wg-protonvpn/repos-wgproton.conf.sops.yaml
     wg_if: "wg0"
     subnet_p2p: "192.168.254.0/30"
     host_ip: "192.168.254.1"

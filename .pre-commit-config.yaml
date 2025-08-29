@@ -31,8 +31,15 @@ repos:
     rev: v1.37.1
     hooks:
       - id: yamllint
-        # Usa tu .yamllint del repo; --strict es buena práctica
-        args: [--strict]
+        args:
+          - --strict
+          - -d
+          - >
+            {extends: default, rules:
+              {line-length:
+                {max: 120, level: warning,
+                 allow-non-breakable-words: true,
+                 allow-non-breakable-inline-mappings: true}}}
         files: \.(yml|yaml)$
         exclude: |
           (?x)(

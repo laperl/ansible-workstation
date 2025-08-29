@@ -1,24 +1,54 @@
 ---
-- name: "Validar estructura de variables: network_wg_protonvpn_instances"
+# 1) La variable debe existir y ser lista no vacía
+- name: "Validar que 'network_wg_protonvpn_instances' está definida y es lista no vacía"
   ansible.builtin.assert:
     that:
-      - network_wg_protonvpn_instances is iterable
-      - network_wg_protonvpn_instances | length > 0
-    fail_msg: >-
-      "Debes definir al menos una instancia en network_wg_protonvpn_instances."
+      - network_wg_protonvpn_instances is defined
+      - network_wg_protonvpn_instances | type_debug == 'list'
+      - (network_wg_protonvpn_instances | length) > 0
+    fail_msg: >
+      Debes definir 'network_wg_protonvpn_instances' como lista con al menos una instancia.
+  tags: [always]
 
-- name: "Validar cada instancia (campos obligatorios)"
+# 2) Cada item debe ser dict
+- name: "Validar que cada instancia es un diccionario (mapping)"
   ansible.builtin.assert:
     that:
-      - item.name is match('^[a-zA-Z0-9_-]+$')
-      - item.wg_conf_sops | length > 0
-      - item.wg_if | length > 0
+      - item | type_debug == 'dict'
+    fail_msg: "Cada instancia debe ser un diccionario con claves requeridas."
+  loop: "{{ network_wg_protonvpn_instances | default([]) }}"
+  loop_control:
+    label: "{{ (item.name | default('sin_name')) }}"
+  tags: [always]
+
+# 3) Claves requeridas (sin usar 'in', todo con 'is defined')
+- name: "Validar claves requeridas de cada instancia"
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.wg_conf_sops is defined
+      - (item.wg_conf_sops | length) > 0
+      - item.wg_if is defined
+      - (item.wg_if | length) > 0
+      - item.subnet_p2p is defined
+      - item.host_ip is defined
+      - item.ns_ip is defined
+    fail_msg: >
+      Instancia inválida: faltan claves requeridas: name, wg_conf_sops, wg_if, subnet_p2p, host_ip, ns_ip.
+  loop: "{{ network_wg_protonvpn_instances }}"
+  loop_control:
+    label: "{{ item.name | default('sin_name') }}"
+  tags: [always]
+
+# 4) Validaciones de formato IPv4
+- name: "Validar formatos de subnet/host/ns IP"
+  ansible.builtin.assert:
+    that:
       - item.subnet_p2p is match('^\\d+\\.\\d+\\.\\d+\\.\\d+/\\d+$')
       - item.host_ip is match('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
       - item.ns_ip is match('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
-    fail_msg: >-
-      "Instancia inválida: revisa name, wg_conf_sops, wg_if, subnet_p2p,
-        host_ip, ns_ip."
+    fail_msg: "Revisa subnet_p2p (CIDR), host_ip y ns_ip (IPv4)."
   loop: "{{ network_wg_protonvpn_instances }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.name | default('sin_name') }}"
+  tags: [always]

@@ -1,4 +1,19 @@
 ---
+- name: "DEBUG: ver network_wg_protonvpn_instances cruda"
+  ansible.builtin.debug:
+    var: network_wg_protonvpn_instances
+  tags: [always]
+
+- name: "DEBUG: claves presentes en cada item"
+  ansible.builtin.debug:
+    msg:
+      name: "{{ item.name | default('sin_name') }}"
+      keys: "{{ item.keys() | list }}"
+      types: "{{ item | type_debug }}"
+  loop: "{{ network_wg_protonvpn_instances | default([]) }}"
+  loop_control: {label: "{{ item.name | default('sin_name') }}"}
+  tags: [always]
+
 - name: "Resumen del plan de despliegue"
   ansible.builtin.debug:
     msg:

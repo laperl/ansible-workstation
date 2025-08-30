@@ -10,13 +10,24 @@
     decrypted_conf: "{{ lookup('community.sops.sops', instance.wg_conf_sops) }}"
 
     # 2) Extrae Address y DNS (pueden ser listas separadas por comas)
+    #     wg_addr_line: "{{ (decrypted_conf | regex_search('^Address\\s*=\\s*([^\\n]+)', '\\1', multiline=True)) | default('') }}"
     wg_addr_line: >-
       {{
         (decrypted_conf
-        | regex_search('^Address\\s*=\\s*([^\\n]+)', '\\1', multiline=True))
-        | default('')
+         | regex_search('^Address\\s*=\\s*[^\\n]+', multiline=True)
+         | default('', true)
+         | regex_replace('^Address\\s*=\\s*', '')
+        )
       }}
-    dns_line: "{{ (decrypted_conf | regex_search('^DNS\\s*=\\s*([^\\n]+)', '\\1', multiline=True)) | default('') }}"
+
+    dns_line: >-
+      {{
+        (decrypted_conf
+         | regex_search('^DNS\\s*=\\s*[^\\n]+', multiline=True)
+         | default('', true)
+         | regex_replace('^DNS\\s*=\\s*', '')
+        )
+      }}
 
     # 3) Derivar nombre corto desde el sops:
     #    - basename: repos-wgproton.conf.sops.yaml
@@ -106,3 +117,4 @@
       ansible.builtin.file:
         path: "{{ short_conf_path }}"
         state: absent
+      no_log: true

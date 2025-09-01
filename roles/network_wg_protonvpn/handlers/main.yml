@@ -1,2 +1,6 @@
 ---
 # Handlers futuros: recargar systemd, reiniciar servicio por instancia, etc.
+# roles/network_wg_protonvpn/handlers/main.yml
+- name: Reload systemd daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true

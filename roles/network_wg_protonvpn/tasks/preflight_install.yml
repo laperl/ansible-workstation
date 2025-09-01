@@ -1,0 +1,64 @@
+---
+# Instala unit, scripts y envs por instancia. No arranca aún.
+
+- name: "Preflight | Asegurar directorios"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /usr/local/sbin
+    - /etc/systemd/system
+    - /etc/wg-ns
+
+- name: "Preflight | Instalar script wgns-preflight.sh"
+  ansible.builtin.copy:
+    src: "wgns-preflight.sh"
+    dest: "/usr/local/sbin/wgns-preflight.sh"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: "Preflight | Instalar stubs wgns-up/down.sh (temporal)"
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/sbin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - wgns-up.sh
+    - wgns-down.sh
+
+- name: "Preflight | Instalar unit template wg-ns@.service"
+  ansible.builtin.template:
+    src: "wg-ns@.service.j2"
+    dest: "/etc/systemd/system/wg-ns@.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: ["systemd daemon-reload"]
+
+# Creamos un EnvironmentFile por instancia con variables necesarias para systemd
+- name: "Preflight | Escribir .env para /etc/wg-ns/{{ instance.name }}"
+  ansible.builtin.template:
+    src: "wg-ns.env.j2"
+    dest: "/etc/wg-ns/{{ instance.name }}.env"
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ network_wg_protonvpn_instances }}"
+  loop_control: {loop_var: instance}
+
+# Habilitar (sin arrancar) si autostart=true; arrancaremos cuando toque
+- name: "Preflight | Habilitar servicio si autostart=true"
+  ansible.builtin.systemd:
+    name: "wg-ns@{{ instance.name }}.service"
+    enabled: true
+    daemon_reload: true
+    state: stopped
+  when: instance.autostart | default(false)
+  loop: "{{ network_wg_protonvpn_instances }}"
+  loop_control: {loop_var: instance}

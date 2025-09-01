@@ -4,3 +4,6 @@
 
 - name: "Network_wg_protonvpn | Mostrar plan de despliegue (dry-run inicial)"
   ansible.builtin.import_tasks: debug_plan.yml
+
+- name: "Network_wg_protonvpn | Instalar preflight (systemd + scripts + envs)"
+  ansible.builtin.import_tasks: preflight_install.yml

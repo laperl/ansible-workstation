@@ -1,0 +1,33 @@
+# /etc/systemd/system/wg-ns@.service
+# Unit instanciable para levantar VPN en namespace aislado
+# Usa EnvironmentFile con parámetros por instancia.
+# Referencias: systemd.service, systemd.exec (EnvironmentFile).
+# https://www.freedesktop.org/software/systemd/man/systemd.service.html
+# https://www.freedesktop.org/software/systemd/man/systemd.exec.html
+
+[Unit]
+Description=WireGuard ProtonVPN (netns) %I
+After=NetworkManager-wait-online.service network-online.target
+Wants=NetworkManager-wait-online.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/wg-ns/%i.env
+
+# Preflight: valida salida a Internet en host, WAN_IF si vacío, y solapes de subredes
+ExecStartPre=/usr/local/sbin/wgns-preflight.sh %i
+
+# Stubs por ahora (en próximos pasos implementaremos up/down reales)
+ExecStart=/usr/local/sbin/wgns-up.sh %i
+ExecStop=/usr/local/sbin/wgns-down.sh %i
+
+# Limitar capacidades a red
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+NoNewPrivileges=true
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

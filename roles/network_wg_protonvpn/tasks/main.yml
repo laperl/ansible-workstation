@@ -10,3 +10,6 @@
   loop: "{{ network_wg_protonvpn_instances }}"
   loop_control:
     loop_var: instance
+
+- name: "Network_wg_protonvpn | Instalar preflight (systemd + scripts + envs)"
+  ansible.builtin.import_tasks: preflight_install.yml

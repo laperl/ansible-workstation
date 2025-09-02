@@ -10,7 +10,6 @@
     decrypted_conf: "{{ lookup('community.sops.sops', instance.wg_conf_sops) }}"
 
     # 2) Extrae Address y DNS (pueden ser listas separadas por comas)
-    #     wg_addr_line: "{{ (decrypted_conf | regex_search('^Address\\s*=\\s*([^\\n]+)', '\\1', multiline=True)) | default('') }}"
     wg_addr_line: >-
       {{
         (decrypted_conf
@@ -29,12 +28,7 @@
         )
       }}
 
-    # 3) Derivar nombre corto desde el sops:
-    #    - basename: repos-wgproton.conf.sops.yaml
-    #    - quitar sufijos .sops.yaml / .yaml / .yml
-    #    - quitar .conf final si quedara
-    #    - sanear caracteres a [A-Za-z0-9_=+.-] (otros -> '-')
-    #    - truncar a 15 (límite de interfaz Linux)
+    # 3) Derivar nombre corto desde el sops (límite 15 chars para ifaces)
     sops_base_raw: >-
       {{
         (instance.wg_conf_sops | basename)
@@ -48,6 +42,10 @@
 
     # 4) wg-quick requiere basename válido <=15 + '.conf'
     short_conf_path: "/tmp/{{ short_base }}conf"
+
+    # 5) Directorio persistente para conf purificado (personalizable)
+    conf_dir: "{{ network_wg_protonvpn_global.conf_dir | default('/etc/wireguard') }}"
+    conf_dst: "{{ conf_dir }}/{{ instance.name }}.conf"
   block:
 
     - name: "Crear tmp aleatorio para conf desencriptada"
@@ -92,9 +90,29 @@
       changed_when: false
       no_log: true
 
-    - name: "Guardar facts de la instancia"
+    # === NUEVO: persistir conf en /etc/wireguard y usar 0640 ===
+
+    - name: "Asegurar directorio de configs WireGuard"
+      ansible.builtin.file:
+        path: "{{ conf_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: "Instalar conf purificado en ruta persistente"
+      ansible.builtin.copy:
+        src: "{{ network_wg_protonvpn_purowg_tmp.path }}"
+        dest: "{{ conf_dst }}"
+        owner: root
+        group: root
+        mode: "0640"
+        remote_src: true
+      no_log: true
+
+    - name: "Guardar facts de la instancia (apuntando al conf persistente)"
       vars:
-        _purowg_path: "{{ network_wg_protonvpn_purowg_tmp.path }}"
+        _purowg_path: "{{ conf_dst }}"
         _decrypted_path: "{{ network_wg_protonvpn_decrypted_tmp.path }}"
       ansible.builtin.set_fact:
         network_wg_protonvpn_facts: >-

@@ -20,5 +20,6 @@ network_wg_protonvpn_global:
   iptables_manage_nat: false     # en Punto 1 no tocaremos NAT; se hará en iteración posterior
   iptables_nat_subnets: []       # lista de subredes a masqueradear (se poblará más adelante)
   systemd_unit_name: "wg-ns@.service"  # nombre base de la unidad template
+  conf_dir: "/etc/wireguard"
 
 # yamllint enable rule:line-length

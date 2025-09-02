@@ -39,7 +39,7 @@
     owner: root
     group: root
     mode: "0644"
-  notify: ["systemd daemon-reload"]
+  notify: ["Reload systemd daemon-reload"]
 
 # Creamos un EnvironmentFile por instancia con variables necesarias para systemd
 - name: "Preflight | Escribir .env para /etc/wg-ns/{{ instance.name }}"

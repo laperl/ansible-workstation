@@ -6,25 +6,34 @@
 
 - name: "Preparar conf (wg-quick) para la instancia"
   vars:
-    # 1) Desencripta el .conf (wg-quick) en el controlador
+    # 1) Desencripta el fichero SOPS (puede ser YAML con 'wg_conf' o un .conf plano)
     decrypted_conf: "{{ lookup('community.sops.sops', instance.wg_conf_sops) }}"
 
-    # 2) Extrae Address y DNS (pueden ser listas separadas por comas)
-    wg_addr_line: >-
+    # Si es YAML con clave wg_conf, toma sólo ese bloque; si no, usa tal cual.
+    maybe_yaml: "{{ decrypted_conf | from_yaml | default({}, true) }}"
+    conf_effective: >-
       {{
-        (decrypted_conf
-         | regex_search('^Address\\s*=\\s*[^\\n]+', multiline=True)
-         | default('', true)
-         | regex_replace('^Address\\s*=\\s*', '')
+        ( maybe_yaml.wg_conf
+          if (maybe_yaml is mapping and ('wg_conf' in maybe_yaml))
+          else decrypted_conf
         )
       }}
 
+    # 2) Extrae Address y DNS (tolerando espacios; SIN grupos para evitar AttributeError)
+    wg_addr_line: >-
+      {{
+        (conf_effective
+         | regex_search('^\\s*Address\\s*=\\s*[^\\n]+', multiline=True)
+         | default('', true)
+         | regex_replace('^\\s*Address\\s*=\\s*', '')
+        )
+      }}
     dns_line: >-
       {{
-        (decrypted_conf
-         | regex_search('^DNS\\s*=\\s*[^\\n]+', multiline=True)
+        (conf_effective
+         | regex_search('^\\s*DNS\\s*=\\s*[^\\n]+', multiline=True)
          | default('', true)
-         | regex_replace('^DNS\\s*=\\s*', '')
+         | regex_replace('^\\s*DNS\\s*=\\s*', '')
         )
       }}
 
@@ -40,24 +49,25 @@
     sops_base_15: "{{ sops_base_sane | regex_replace('^(.{0,15}).*', '\\1') }}"
     short_base: "{{ (sops_base_15 | length > 0) | ternary(sops_base_15, instance.wg_if) }}"
 
-    # 4) wg-quick requiere basename válido <=15 + '.conf'
-    short_conf_path: "/tmp/{{ short_base }}conf"
+    # 4) wg-quick prefiere basename <=15 + '.conf' (temporal corto para strip)
+    short_conf_path: "/tmp/{{ short_base }}.conf"
 
-    # 5) Directorio persistente para conf purificado (personalizable)
+    # 5) Directorio persistente para las confs
     conf_dir: "{{ network_wg_protonvpn_global.conf_dir | default('/etc/wireguard') }}"
-    conf_dst: "{{ conf_dir }}/{{ instance.name }}.conf"
+    original_dst: "{{ conf_dir }}/{{ instance.name }}.original.conf"
+    purowg_dst: "{{ conf_dir }}/{{ instance.name }}.purowg.conf"
   block:
 
-    - name: "Crear tmp aleatorio para conf desencriptada"
+    - name: "Crear tmp aleatorio para conf 'efectiva' (original a usar)"
       ansible.builtin.tempfile:
         state: file
         suffix: ".conf"
       register: network_wg_protonvpn_decrypted_tmp
       no_log: true
 
-    - name: "Escribir conf desencriptada"
+    - name: "Escribir conf EFECTIVA (bloque WG) en temporal"
       ansible.builtin.copy:
-        content: "{{ decrypted_conf }}"
+        content: "{{ conf_effective }}"
         dest: "{{ network_wg_protonvpn_decrypted_tmp.path }}"
         owner: root
         group: root
@@ -90,37 +100,44 @@
       changed_when: false
       no_log: true
 
-    # === NUEVO: persistir conf en /etc/wireguard y usar 0640 ===
+    # === Persistir SIEMPRE en conf_dir con permisos estrictos ===
 
-    - name: "Asegurar directorio de configs WireGuard"
+    - name: "Asegurar directorio de configs WireGuard (conf_dir)"
       ansible.builtin.file:
         path: "{{ conf_dir }}"
         state: directory
         owner: root
         group: root
-        mode: "0755"
+        mode: "0700"
 
-    - name: "Instalar conf purificado en ruta persistente"
+    - name: "Persistir conf ORIGINAL (wg-quick completa) en conf_dir"
       ansible.builtin.copy:
-        src: "{{ network_wg_protonvpn_purowg_tmp.path }}"
-        dest: "{{ conf_dst }}"
+        src: "{{ network_wg_protonvpn_decrypted_tmp.path }}"
+        dest: "{{ original_dst }}"
         owner: root
         group: root
-        mode: "0640"
+        mode: "0600"
         remote_src: true
       no_log: true
 
-    - name: "Guardar facts de la instancia (apuntando al conf persistente)"
-      vars:
-        _purowg_path: "{{ conf_dst }}"
-        _decrypted_path: "{{ network_wg_protonvpn_decrypted_tmp.path }}"
+    - name: "Persistir conf PURA (wg-quick strip) en conf_dir"
+      ansible.builtin.copy:
+        src: "{{ network_wg_protonvpn_purowg_tmp.path }}"
+        dest: "{{ purowg_dst }}"
+        owner: root
+        group: root
+        mode: "0600"
+        remote_src: true
+      no_log: true
+
+    - name: "Guardar facts de la instancia (paths persistentes + metadatos)"
       ansible.builtin.set_fact:
         network_wg_protonvpn_facts: >-
           {{ (network_wg_protonvpn_facts | default({})) |
-             ansible.builtin.combine({
-               instance.name: {
-                 "purowg_conf": _purowg_path,
-                 "decrypted_conf": _decrypted_path,
+             combine({
+               (instance.name): {
+                 "purowg_conf": purowg_dst,
+                 "decrypted_conf": original_dst,
                  "wg_addr": wg_addr_line,
                  "dns_original": dns_line,
                  "short_conf_path": short_conf_path,
@@ -131,8 +148,17 @@
       no_log: true
 
   always:
-    - name: "Borrar fichero corto temporal de wg-quick"
+    - name: "Borrar temporal corto de wg-quick"
       ansible.builtin.file:
         path: "{{ short_conf_path }}"
         state: absent
+      no_log: true
+
+    - name: "Borrar temporales intermedios"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ network_wg_protonvpn_decrypted_tmp.path }}"
+        - "{{ network_wg_protonvpn_purowg_tmp.path }}"
       no_log: true

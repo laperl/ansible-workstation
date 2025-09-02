@@ -1,10 +1,10 @@
 ---
 network_wg_protonvpn_instances:
-  - name: "vpn1"
+  - name: "wg-repos"
     autostart: true
     wg_conf_sops: >-
       {{ playbook_dir }}/secrets/wg-protonvpn/repos-wgproton.conf.sops.yaml
-    wg_if: "wg0"
+    wg_if: "wg-repos"
     subnet_p2p: "192.168.254.0/30"
     host_ip: "192.168.254.1"
     ns_ip: "192.168.254.2"
@@ -13,6 +13,7 @@ network_wg_protonvpn_instances:
     endpoint_override: ""      # vacío -> usar el del conf
 
 network_wg_protonvpn_global:
+  conf_dir: /etc/wireguard
   ip_forward_persistent: true
   iptables_manage_nat: false   # NAT se implementará más adelante
   iptables_nat_subnets: []

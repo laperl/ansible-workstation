@@ -1,0 +1,46 @@
+network_wg_protonvpn_instances:
+    - name: ENC[AES256_GCM,data:qsGmZHg9,iv:MbMZmEesKTfkMjcGFkY8hh67oXT9XR0zlkOukMBT+98=,tag:4Jmc8pM0upgxf9y1FjJcrA==,type:str]
+      autostart: ENC[AES256_GCM,data:WErvxg==,iv:rxK9PYHhB3qE35pNA94dHN1Oyq6Edo9mHKC9pICGFY4=,tag:fnIEFvqEE4+iu9hf9W/PKQ==,type:bool]
+      wg_conf_sops: ENC[AES256_GCM,data:zNXlrbJujvsM579ahT9wTdbWQ4tOaRJrxaxZALOBf4FgUBdXcjz8mFKdaxGODWVh0RIg2/T40pjXaWilwxDlUllpxA==,iv:/9FxBbPeLf2aev5X8nQNVzrnsa46TF4I8tuKCrNvkIc=,tag:3TN9REoQS41CL9Q8c6Ttxg==,type:str]
+      wg_if: ENC[AES256_GCM,data:9cRGRy0v,iv:hMlGGyhgp/jw1zal9n1zWo2xSVc4SEL6Q1CLixrUCyE=,tag:wlBV7ZEZ5y/PGSYqGtR98g==,type:str]
+      subnet_p2p: ENC[AES256_GCM,data:8UcfNgLD/1cCZaBTYe4Odg==,iv:205s95IGQyat1oKUeMP8EILNsbaRzyyGEtWlbSYMrII=,tag:VmtO58c1xm390hhJBFDnTg==,type:str]
+      host_ip: ENC[AES256_GCM,data:pPhLlC21BtzH2gbytA==,iv:wHP3TOSHBOiC9/9W7UEH10UAslLfFIgp0uh8AZsEGFU=,tag:Z6LuiwETIj1CUVQKQpN8kw==,type:str]
+      ns_ip: ENC[AES256_GCM,data:2OCXDJm7Og5/MILVeQ==,iv:IU7AEbTfMNreKV+Bu1EadN+SLjYu0nVqWzEQkZVSMBM=,tag:I8yvQ3OnGm7ZpLp/jbk3DA==,type:str]
+      #ENC[AES256_GCM,data:PRbINOq2mGQeQpQ5DY9HFGG7tJ+oLnqkkOuV16ez,iv:WfSn2wAFhzdzaDeedmRCpZLWrzYtHshKaVLx5nj4atc=,tag:dyOdsS8lGbYiZdaDTfHTOg==,type:comment]
+      dns_ns: ""
+      #ENC[AES256_GCM,data:EV0HHXAdOI4/2cRnAn9IijiWTaULKD0=,iv:PmMLkU/T6kCJaXBiF7lyYE9les12Rby3+9NGA+g5268=,tag:dS1UHkcWQjXclXvjxMNLgw==,type:comment]
+      wan_if: ""
+      #ENC[AES256_GCM,data:4TsbHwMj4rn+X3C+lB5NWmLreRVXmYtnyO5zE/gZ,iv:Qt1UUvzDiOn8yub8v+MJnUqMBSzUj/FDHQ7XVx6VjmU=,tag:/zZN13rGxfmr39WRKqKI6w==,type:comment]
+      endpoint_override: ""
+    - name: ENC[AES256_GCM,data:Rhep3VyfLYU=,iv:b7BNjOq0NiLNT+nJUGv3Ontre26VlymhYvyRlVn9t+o=,tag:FYv6xLJvJ9TWUHFxe/66Ig==,type:str]
+      autostart: ENC[AES256_GCM,data:5QmSKw==,iv:aFC5wuVbZW8Htvi+Q9uRVMsFqwMwWRaUeL/uk/XvLYk=,tag:ATFBKCznMDxx96WoInQapw==,type:bool]
+      wg_conf_sops: ENC[AES256_GCM,data:24pkoZ/JGp+F4UIUUiMEXRxTV+vmRYgLkbR9vQ16nEvLkSPRaJY86gM8lNwJCKNjwpidgNVTiFf0tuuUA4mTobCR0OWp,iv:qk4CfcEzw/hyPuMCClgEf7OEi1LPiwDS3QsXtIZM22I=,tag:8J5x1QZlZnYIiQkRZtaTEQ==,type:str]
+      wg_if: ENC[AES256_GCM,data:UBjBcfsN6wM=,iv:yw+OdBIH0v2xVlNgRd3mUfD8ATnDyFHeNbQF3nLUj18=,tag:APCujemZhjmScsoiwz5VXQ==,type:str]
+      subnet_p2p: ENC[AES256_GCM,data:d4UMrRTEBTrfRPJh6DAHpw==,iv:CtxP0FLksBkhBpOQPF9rGHGsASI/Gw0+a8WVmNhfIpE=,tag:oxWFo2uvwTo0UMs1mqYAhA==,type:str]
+      host_ip: ENC[AES256_GCM,data:vrrSVJqO6Q5ODsa8dA==,iv:7L9rXQhLsdY01eJVE2EDOmIj07OUh6LoDZ8bXEsEG/k=,tag:E60eb2yMYb1zP88uabYNfA==,type:str]
+      ns_ip: ENC[AES256_GCM,data:Fy4mJSPklCy7kmOFEw==,iv:n7+I+d11P20Ina7+v4q/7YodBEFkk/OPQOqOA1Xdysw=,tag:FY59i8YChjJM2nXu/04PwQ==,type:str]
+      dns_ns: ""
+      wan_if: ""
+      endpoint_override: ""
+network_wg_protonvpn_global:
+    conf_dir: ENC[AES256_GCM,data:xcyd9zrYkZ9JttrECIw=,iv:fTUQ7ZhG8cI5HNNcPTbheBktzflsw9jnLUOj3kyj2g8=,tag:goJ0p9I0YCTLKteAk02rgg==,type:str]
+    ip_forward_persistent: ENC[AES256_GCM,data:pcwt8g==,iv:8EVQ8cxuDKlHs4CDjgjwqrcuLwL9Uq/0haVsr4gW58c=,tag:zyYz4CDlCvZu51lDMMIIiw==,type:bool]
+    #ENC[AES256_GCM,data:EPG7ekcXtEaKYvwqx9cwlsrazpw75frW6BZQPCesHCNTsw4=,iv:UZceI0TAbT/6gczzR7BX68DT+m+4/80A/jf04k+T/4Y=,tag:+OLAq6vAPJUN+zMrbFn0oQ==,type:comment]
+    iptables_manage_nat: ENC[AES256_GCM,data:uCq3OFM=,iv:/elXf8yS6SFKWRS6Lw7KBUpI2ZNZsCBe2M5TxMy1qI4=,tag:+L/Z1kAPjRpmRfIhp5StNA==,type:bool]
+    iptables_nat_subnets: []
+    systemd_unit_name: ENC[AES256_GCM,data://dcLpp6fFWG6QGf/yo=,iv:fxOWU6+4eQK59gRaK3gseGmXQMTJSfnLhT1VvaN0y7g=,tag:rYrom9kExbpiFZ9uTl1mbQ==,type:str]
+sops:
+    age:
+        - recipient: age1gg6nqp6hd5djvedvtrpr60wrtdqyqekcxkcynlvhqpq77qeqgcgqhevcff
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA5bWJvZCtweUdvWEN5MENQ
+            LzFqOEt3bkVBazVYRk52OTVRdmxTSzlPWG5BClpFQUdzU1RiOVJIREpJTjY1VEd6
+            b1NvM3JqY0R6VFMxd0paamN6MDNDUG8KLS0tIEN6VE5QSGU3WnBwRFBwYnVWems5
+            bXdIcjR3L3hZTXU3RFA4UWlwRjYzZ1UKxyKpFgQIta8RJay8d0zZs6eZv9JI78FE
+            em0vTMAZe5kVrogibCji0Y+GFQgS1b55YfG3hNRrE9Hl06WuZDcPpw==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2025-09-02T16:42:24Z"
+    mac: ENC[AES256_GCM,data:c8NdsLIY+1f4+a9KXPBEHOm38S9Scgd5mUKjCqk0BRI5nCztKCSq0FTYTOPKSV6PqtE6ppxjNosh6JDZnEA5sYZYd3bKpkMPr4drif1HCXzGSOWmJT0qUrTg+GK4IGzI6hX8XhyMsKjuReuScxxBg5nnFm1kkN+kTyL8sk7ZVb4=,iv:cAJGTTncGf5tQUrWp9CsX5Z7QPjOTFaRW17QLQ6hBCA=,tag:4i+ekGiGyBBfcYNnse04yw==,type:str]
+    unencrypted_suffix: _unencrypted
+    version: 3.10.2

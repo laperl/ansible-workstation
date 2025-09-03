@@ -2,6 +2,10 @@
 # .config/ansible-lint.yml
 exclude_paths:
   - "secrets/"        # rutas relativas a este fichero
+  - "group_vars/**/*.sops.yml"
+  - "group_vars/**/*.sops.yaml"
+  - "**/*.sops.yml"
+  - "**/*.sops.yaml"
 # (opcional) si quieres rebajar a warning alguna regla:
 # warn_list:
 #   - yaml[line-length]

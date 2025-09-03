@@ -64,3 +64,8 @@ secrets/**/*.crt
 # --- LOGS / SALIDAS ---
 *.log
 logs/
+
+# Ignorar YAML en claro en group_vars/all
+group_vars/all/*.yml
+# …pero permitir los cifrados SOPS
+!group_vars/all/*.sops.yml

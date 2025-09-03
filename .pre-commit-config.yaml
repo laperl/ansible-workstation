@@ -11,20 +11,15 @@ repos:
       - id: ansible-lint
         args: ["-c", ".config/ansible-lint.yml"]
         # Limita el alcance a rutas típicas de Ansible
+        # No pases a ansible-lint ningún .sops.y*ml (se filtra aquí)
         files: |
-          (?x)^(
+          (?x)^(?!.*\.sops\.ya?ml$)(
             ansible\.cfg|
             (playbooks|roles|tasks|handlers|group_vars|host_vars|inventory|collections|plugins)/.*\.(yml|yaml)|
             (site|main|playbook).*\.ya?ml
           )$
-        # Excluye secretos SOPS y todo secrets/**
-        exclude: '(^(secrets/))|(.*\.sops\.ya?ml$)'
-        # Si tu repo necesita el bundle "ansible" en el venv del hook,
-        # descomenta (ver doc oficial):
-        # additional_dependencies:
-        #   - ansible
-        #   # o si prefieres ansible-core pinned:
-        #   # - ansible-core==2.16.7
+        # Además, por si acaso, excluye secrets/ enteros
+        exclude: '^secrets/'
 
   # 2) Yamllint (hook oficial)
   - repo: https://github.com/adrienverge/yamllint.git
@@ -43,13 +38,15 @@ repos:
         files: \.(yml|yaml)$
         exclude: |
           (?x)(
-            ^secrets/|
+            ^secrets/ |
             \.sops\.ya?ml$
           )
 
-  # 3) Hygiene básica (opcional, pero útil)
+  # 3) Hygiene básica (evitar tocar cifrados SOPS)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
+        exclude: '\.sops\.ya?ml$'
       - id: trailing-whitespace
+        exclude: '\.sops\.ya?ml$'

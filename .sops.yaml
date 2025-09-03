@@ -4,3 +4,5 @@ creation_rules:
     age: "age1gg6nqp6hd5djvedvtrpr60wrtdqyqekcxkcynlvhqpq77qeqgcgqhevcff"
   - path_regex: secrets/.*\.sops$        # ⬅️ binarios (clave privada)
     age: "age1gg6nqp6hd5djvedvtrpr60wrtdqyqekcxkcynlvhqpq77qeqgcgqhevcff"
+  - path_regex: ^group_vars/.*\.sops\.ya?ml$  #⬅️  Ficheros dentro de group_vars
+    age: "age1gg6nqp6hd5djvedvtrpr60wrtdqyqekcxkcynlvhqpq77qeqgcgqhevcff"

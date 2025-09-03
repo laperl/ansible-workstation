@@ -62,3 +62,12 @@
   when: instance.autostart | default(false)
   loop: "{{ network_wg_protonvpn_instances }}"
   loop_control: {loop_var: instance}
+
+# Instalo el wrapper para lanzar aplicaciones en un netns
+- name: "Preflight | Instalar MI_wgns-exec.bash"
+  ansible.builtin.copy:
+    src: "MI_wgns-exec.bash"
+    dest: "/usr/local/sbin/MI_wgns-exec.bash"
+    owner: root
+    group: root
+    mode: "0755"

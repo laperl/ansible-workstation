@@ -1,63 +1,45 @@
-# network\_wg\_protonvpn
+# docs/network\_wg\_protonvpn.md
 
-Este role prepara la infraestructura para levantar una o varias VPN Proton (WireGuard) en **namespaces** aislados.
+## Resumen
 
----
+Role para aislar tráfico por **network namespaces** y túneles **WireGuard** de ProtonVPN, con **DNS por namespace** y **NAT** opcional.
 
-## Parámetro por VPN: autostart
+## Arquitectura
 
-* `autostart: true`  → se habilitará el servicio systemd al arranque.
-* `autostart: false` → arranque manual (útil para pruebas o VPNs puntuales).
+* **netns**: aislamiento de pila de red, rutas y dispositivos.
+* **veth /30**: par virtual host↔netns (`host_ip` y `ns_ip`).
+* **Ruta /32 al endpoint** por la veth para evitar hairpin al levantar WG.
+* **WG en el netns** (`wg setconf` con `*.purowg.conf`), **default** por WG.
+* **DNS por netns** en `/etc/netns/<ns>/resolv.conf`.
+* **NAT (iptables)** efímero opcional (POSTROUTING MASQUERADE por `WAN_IF`).
 
----
+## Detalle de tareas
 
-## Flujo (resumen)
+* `validate_vars.yml`: estructura y formatos de IP/CIDR.
+* `prepare_conf.yml`: desencripta (SOPS), extrae `Address`/`DNS`, normaliza basename ≤15, ejecuta `wg-quick strip`, persiste confs y publica facts.
+* `preflight_install.yml`:
 
-1. **Cargar variables y validar estructura.**
-2. **Desencriptar `.conf` (SOPS) y convertir con `wg-quick strip` → `setconf`.**
+  * Crea directorios (`/usr/local/sbin`, `/etc/systemd/system`, `/etc/wg-ns`).
+  * Instala scripts `wgns-*.sh` y **`MI_wgns-exec.bash`**.
+  * Instala unit `wg-ns@.service` y `.env` por instancia.
+  * Habilita `wg-ns@<instancia>` si `autostart: true` (en `stopped`).
 
-   * Implementado en `tasks/prepare_conf.yml`.
-   * Para cada instancia:
+## Operativa
 
-     * Desencripta el `.conf` original con `community.sops.sops` (en el controlador).
-     * Extrae líneas `Address=` y `DNS=` para usarlas después (IPs y resolv.conf del namespace).
-     * Normaliza un nombre corto seguro (≤15 caracteres) para satisfacer restricciones de `wg-quick`.
-     * Ejecuta `wg-quick strip` para generar un fichero “puro WG” sin `Address`/`DNS`.
-     * Publica *facts* por instancia en `network_wg_protonvpn_facts[<name>]`:
+1. Ejecuta el play del role.
+2. Arranca la instancia con systemd: `sudo systemctl start wg-ns@vpn1`.
+3. Lanza una app dentro del netns: `sudo MI_wgns-exec.bash vpn1 -- <comando>`.
+4. Verifica con los **tests de humo**.
 
-       * `purowg_conf`, `decrypted_conf`, `wg_addr`, `dns_original`, `short_conf_path`, `short_base`.
-     * El fichero corto temporal se borra siempre al finalizar.
-     * Seguridad: todo con `no_log: true` y permisos `0600`.
-3. (Futuro) Crear netns + veth + IPs + rutas.
-4. (Futuro) Cargar WG, DNS por netns (`/etc/netns/<ns>/resolv.conf`).
-5. (Futuro en Pop!\_OS 22.04) NAT con **iptables** (POSTROUTING MASQUERADE).
+## Mantenimiento
 
----
+* **Logs**: `journalctl -u wg-ns@<ns>`, `journalctl -t wg-ns`.
+* **Limpieza**: `systemctl stop wg-ns@<ns>` y `wgns-down.sh` ya elimina veth/netns y NAT efímero.
+* **Sysctl**: si `ip_forward_persistent: true`, se instala `/etc/sysctl.d/99-wgns-forward.conf` con `net.ipv4.ip_forward=1`.
 
-## Ejemplo rápido de uso (dry-run)
+## Preguntas frecuentes
 
-```bash
-ansible-playbook playbooks/network_wg_protonvpn_dryrun.yml -i localhost,
-```
-
-En el dry-run puedes inspeccionar los *facts* publicados para verificar que el parsing de Address/DNS y `wg-quick strip` funcionan.
-
----
-
-## Detalles técnicos relevantes
-
-* Se usa **`community.sops`** para desencriptar en el controlador (no en el host remoto).
-* `wg-quick strip` requiere un basename ≤15 → se genera un nombre corto derivado del `.sops.yaml`.
-* Los ficheros `decrypted_conf` y `purowg_conf` son temporales y se mantendrán hasta que el role o los scripts de *teardown* los eliminen.
-
----
-
-## Próximos pasos (planeados)
-
-* Preflight: detección de `WAN_IF`, conectividad y conflictos de subred.
-* Creación idempotente de netns/veth.
-* Ruta directa al Endpoint para evitar hairpin.
-* Configuración de interfaz WG y rutas por defecto.
-* DNS propio por namespace (`/etc/netns/<ns>/resolv.conf`).
-* Forwarding + NAT con iptables.
-* Unidades systemd y *scripts* auxiliares (`wgns-preflight.sh`, `wgns-up.sh`, `wgns-down.sh`).
+* ¿Puedo usar mi propio DNS? Sí: pon `dns_ns` en la instancia o deja vacío para usar el `DNS=` del conf original.
+* ¿Qué pasa si no defino `wan_if`? Se autodetecta en preflight (`ip route get 1.1.1.1`).
+* ¿Puedo usar varias instancias a la vez? Sí, el preflight detecta **solapes** de subred y falla si los hay.
+# docs/network\_wg\_protonvpn.md

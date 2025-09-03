@@ -1,0 +1,9 @@
+# TODO
+
+- Repasar y optimizar el código de ansible
+- Cuando ejecuto el script en un PC con `ssh -X` sale el error:
+
+```bash
+$ sudo ./MI_wgns-exec.bash wg-repos -- firefox
+Error: cannot open display: localhost:10.0
+```

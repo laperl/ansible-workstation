@@ -1,110 +1,135 @@
-# Role: network\_wg\_protonvpn
+# roles/network\_wg\_protonvpn — README.md
 
-Levanta una o varias VPN Proton (WireGuard) en **network namespaces** aislados, usando `wg setconf` (a partir de ficheros `wg-quick` cifrados con **SOPS**).
+## Propósito
 
-> **Novedad (paso 2)**: se incorpora `tasks/prepare_conf.yml`, que **desencripta** el `.conf` original (SOPS), **extrae** `Address`/`DNS`, **normaliza** el nombre del fichero para `wg-quick` (≤15 caracteres) y genera una **configuración purificada** con `wg-quick strip` para usar con `wg setconf`.
-
----
+Desplegar una o varias **ProtonVPN (WireGuard)** dentro de **network namespaces** (netns) en Pop!\_OS/Ubuntu, con rutas, DNS y (opcional) NAT aislados, controlado por **systemd** y archivos **.env** por instancia.
 
 ## Requisitos
 
-* Pop!\_OS (Ubuntu 22.04) con `wireguard-tools` (`wg`, `wg-quick`).
-* En el **controlador**: binario `sops` accesible en `PATH`.
-* Colecciones Ansible:
+* Pop!\_OS/Ubuntu 22.04 con `wireguard-tools` (`wg`, `wg-quick`) y `iptables`.
+* En el **controlador Ansible**: binario `sops` en `PATH`.
+* Colección `community.sops` (ya declarada en `requirements.yml`).
 
-  * `community.sops` (lookup `community.sops.sops`).
-  * `community.general`, `ansible.posix` (según el resto del proyecto).
+## Variables (API)
 
-> En este repo, `community.sops` ya figura en `requirements.yml` y `sops` se instala en el controlador desde el role `base`.
-
----
-
-## Variables
+Ejemplo mínimo en `group_vars/all` o en tu inventario:
 
 ```yaml
 network_wg_protonvpn_instances:
-  - name: "vpn1"                  # nombre del netns y de la instancia
-    autostart: true               # habilitar unidad systemd al arranque
-    wg_conf_sops:
-      {{ playbook_dir }}/secrets/wg-protonvpn/repos-wgproton.conf.sops.yaml
+  - name: "vpn1"                  # nombre del netns/instancia
+    autostart: true               # habilitar unidad al boot (no arranca hasta que invoques systemctl/play)
+    wg_conf_sops: "{{ playbook_dir }}/secrets/wg-protonvpn/my.conf.sops.yaml"
     wg_if: "wg0"                  # interfaz WG dentro del netns
     subnet_p2p: "192.168.254.0/30"
     host_ip: "192.168.254.1"
     ns_ip:   "192.168.254.2"
-    dns_ns:  "10.2.0.1"          # si vacío → usa DNS del conf original
-    wan_if: ""                    # autodetect
-    endpoint_override: ""         # host:port opcional
-
-network_wg_protonvpn_global:
-  ip_forward_persistent: true
-  iptables_manage_nat: false
-  iptables_nat_subnets: []
-  systemd_unit_name: "wg-ns@.service"
+    dns_ns:  "10.2.0.1"           # si vacío → usa DNS= del conf original
+    wan_if: ""                    # si vacío → autodetectar en preflight
+    endpoint_override: ""         # opcional: "host:puerto" para forzar endpoint
 ```
 
----
+## Qué instala
 
-## Flujo de tareas actual
+* **Confs WG** en `conf_dir` (`/etc/wireguard` por defecto):
 
-1. **Validación**: `tasks/validate_vars.yml` asegura estructura y formatos de IP.
-2. **Plan (debug)**: `tasks/debug_plan.yml` muestra el despliegue calculado.
-3. **Preparación de confs**: `tasks/prepare_conf.yml` (detalle abajo).
+  * `<instancia>.original.conf` (wg-quick original, desencriptado desde SOPS)
+  * `<instancia>.purowg.conf` (purificado con `wg-quick strip` para `wg setconf`)
+* **Unidad systemd**: `/etc/systemd/system/wg-ns@.service` (plantilla instanciable)
+* **Scripts** en `/usr/local/sbin/`:
 
-En `tasks/main.yml`:
+  * `wgns-preflight.sh` — conectividad, autodetección de `WAN_IF` y solapes de subred /30
+  * `wgns-up.sh` — crea netns+veth, IPs/30, ruta /32 al endpoint, levanta WG, default por WG, DNS del netns
+  * `wgns-down.sh` — revierte todo y limpia NAT efímero si procede
+  * `MI_wgns-exec.bash` — **wrapper sencillo** para ejecutar 1 app dentro del netns
+* **.env por instancia**: `/etc/wg-ns/<instancia>.env`
 
-```yaml
-- import_tasks: validate_vars.yml
-- import_tasks: debug_plan.yml
-- include_tasks: prepare_conf.yml
-  loop: "{{ network_wg_protonvpn_instances }}"
-  loop_control: { loop_var: instance }
-```
+## Flujo del rol
 
----
+1. **Validación** de estructura/formatos (`tasks/validate_vars.yml`).
+2. **SOPS + strip** por instancia (`tasks/prepare_conf.yml`):
 
-## ¿Qué hace `tasks/prepare_conf.yml`?
+   * Desencripta `.conf` (YAML con `wg_conf` o `.conf` plano).
+   * Extrae `Address=` y `DNS=` y publica *facts*.
+   * Genera `*.purowg.conf` con `wg-quick strip` y persiste ambos ficheros con `0600`.
+3. **Preflight/instalación** (`tasks/preflight_install.yml`): directorios, scripts, unit, `.env` por instancia; habilita servicio si `autostart: true` (estado `stopped`).
 
-Para **cada instancia** (`loop_var: instance`):
+## Uso
 
-1. **Desencripta** el `.conf` `wg-quick` con `lookup('community.sops.sops', instance.wg_conf_sops)` **en el controlador**.
-2. **Extrae** `Address=` y `DNS=` (pueden ser listas separadas por comas) y las guarda para pasos posteriores.
-3. **Normaliza** un *basename* corto y seguro (solo `[A-Za-z0-9_+=.-]`, truncado a 15) y crea `/tmp/<short>conf` para satisfacer la restricción de `wg-quick` (nombres ≤15 + `conf`).
-4. Ejecuta `wg-quick strip` sobre ese fichero corto y **genera** una conf “pura WG” (sin `Address`/`DNS`) lista para `wg setconf`.
-5. **Publica facts** por instancia en `network_wg_protonvpn_facts[<name>]`:
-
-   * `purowg_conf`: ruta al fichero purificado.
-   * `decrypted_conf`: ruta al `.conf` desencriptado original (temporal).
-   * `wg_addr`: línea `Address` original (p.ej. `10.2.0.2/32`).
-   * `dns_original`: línea `DNS` original (si existía).
-   * `short_conf_path`: path intermedio `/tmp/<short>conf` (se elimina al final de la tarea).
-   * `short_base`: basename corto calculado (≤15).
-
-### Seguridad y limpieza
-
-* Todo el material sensible se maneja con `no_log: true` y permisos `0600`.
-* Se **elimina siempre** el fichero `/tmp/<short>conf` (solo necesario para `wg-quick strip`).
-* Los ficheros temporales `decrypted_conf` y `purowg_conf` **persisten** para los siguientes pasos del role (creación de interfaz WG, systemd, etc.). Se prevé su limpieza controlada al **bajar** la VPN (en tareas posteriores como `wgns-down.sh`/handlers o al final del role si procede).
-
----
-
-## Ejecución (dry-run útil para verificar parsing)
+### Dry‑run (ver parsing de confs)
 
 ```bash
 ansible-playbook playbooks/network_wg_protonvpn_dryrun.yml -i localhost,
 ```
 
-Revisa en el output los *facts* publicados (con una tarea de debug opcional) y que `wg-quick strip` no marque cambios (se usa `changed_when: false`).
+### Aplicar y operar
 
----
+```bash
+ansible-playbook site.yml -t network_wg_protonvpn -i localhost,
 
-## Próximos pasos (planeados)
+# Arrancar/parar una instancia
+sudo systemctl start  wg-ns@vpn1
+sudo systemctl stop   wg-ns@vpn1
+sudo systemctl enable wg-ns@vpn1    # si autostart=true ya queda habilitada
 
-* **Preflight** (detección `WAN_IF`, conectividad, conflictos de subred /30).
-* **Netns + veth** (creación idempotente, IPs y rutas p2p).
-* **Ruta directa al Endpoint** (evitar hairpin al levantar WG).
-* **Interfaz WireGuard en netns** (`wg setconf`, asignación `WG_ADDR`).
-* **Rutas y DNS por namespace** (`/etc/netns/<ns>/resolv.conf`).
-* **Forwarding + NAT (iptables)**.
-* **Unidades systemd** (`wg-ns@.service`) y *scripts* auxiliares.
+# Logs
+journalctl -u wg-ns@vpn1 -e -n 200
+journalctl -t wg-ns   -e -n 200
+```
 
-Para la explicación extendida y troubleshooting, consulta **`docs/network_wg_protonvpn.md`** (ver enlace en el repo).
+## Ejecutar una app dentro del netns (wrapper sencillo)
+
+Script instalado: `/usr/local/sbin/MI_wgns-exec.bash`
+
+**Uso básico:**
+
+```bash
+# Ejecuta una app/orden en el netns como tu usuario normal
+sudo MI_wgns-exec.bash vpn1 -- brave-browser --profile-directory="crypto"
+
+# Otra app
+sudo MI_wgns-exec.bash vpn1 -- thunderbird
+```
+
+**Script (para referencia):**
+
+```bash
+#!/usr/bin/env bash
+# MI_wgns-exec.bash — wrapper mínimo para 1 app dentro de un netns
+# Uso: sudo MI_wgns-exec.bash <ns> -- <cmd> [args...]
+set -euo pipefail
+NS="${1:-}"; shift || { echo "Uso: $0 <ns> -- <cmd> [args...]" >&2; exit 2; }
+[[ "${1:-}" == "--" ]] || { echo "Falta separador --" >&2; exit 2; }
+shift
+USER_TO_RUN="${SUDO_USER:-$(id -un)}"
+# Ejecuta el comando dentro del netns como usuario normal
+exec ip netns exec "$NS" sudo -u "$USER_TO_RUN" -- "$@"
+```
+
+> Nota: si alguna app GUI no arranca por variables de entorno, prueba lanzarla desde una terminal gráfica del propio usuario o añade `env VAR=...` delante del comando.
+
+## Tests de humo
+
+```bash
+# IP pública por Proton
+sudo ip netns exec vpn1 curl -s https://ifconfig.me
+
+# DNS del namespace
+sudo ip netns exec vpn1 getent hosts example.com
+sudo ip netns exec vpn1 cat /etc/resolv.conf
+
+# Estado WG + handshake
+sudo ip netns exec vpn1 wg show
+```
+
+## Seguridad / buenas prácticas
+
+* Confs con permisos `0600` y `owner=root`. Temporales intermedios se borran.
+* Unidad con `NoNewPrivileges=true` y capacidades de red acotadas.
+* **iptables NAT** sólo si `iptables_manage_nat: true` (se añade al subir y se elimina al bajar).
+* Activa `net.ipv4.ip_forward=1` (el rol puede dejarlo persistente si `ip_forward_persistent: true`).
+
+## Troubleshooting
+
+* Sin handshake: revisa ruta `/32` al endpoint (`ip r get <EP_IP>` dentro del netns), `default dev wg0`, y logs `journalctl -t wg-ns`.
+* DNS: comprueba `/etc/netns/<ns>/resolv.conf` y `dns_ns`.
+* Sin salida en host: `ip route get 1.1.1.1` debe devolver `dev <if>`.

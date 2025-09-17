@@ -1,0 +1,225 @@
+---
+# Tareas específicas para desplegar pipe‑viewer en un contenedor Podman.
+# Este archivo crea los directorios necesarios, construye la imagen
+# OCI si no existe o si se solicita actualización y despliega un
+# envoltorio en ~/.local/bin que permite lanzar pipe‑viewer con un
+# parámetro opcional --tag para seleccionar la etiqueta de la imagen.
+
+- name: «Crear directorios base para datos, configuración y caché»
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+  loop:
+    - "{{ mm_media_data_home }}"
+    - "{{ mm_media_config_home }}"
+    - "{{ mm_media_cache_home }}"
+  tags:
+    - containers
+    - media
+    - pipeviewer
+
+- name: «Crear subdirectorios de configuración de mpv, pipe‑viewer y pulse»
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+  ansible.builtin.file:
+    path: "{{ mm_media_config_home }}/{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+  loop:
+    - mpv
+    - pipe-viewer
+    - pulse
+  tags:
+    - containers
+    - media
+    - pipeviewer
+
+- name: «Crear subdirectorios de configuración requeridos»
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+  loop:
+    - "{{ mm_media_config_home }}/mpv"
+    - "{{ mm_media_config_home }}/mpv/script-opts"
+    - "{{ mm_media_config_home }}/pipe-viewer"
+    - "{{ mm_media_config_home }}/pipe-viewer/playlists"
+    - "{{ mm_media_config_home }}/pulse"
+  tags: [containers, media, pipeviewer]
+
+- name: «Copiar mpv/input.conf»
+  ansible.builtin.template:
+    src: "mpv.input.conf.j2"
+    dest: "{{ mm_media_config_home }}/mpv/input.conf"
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+    mode: '0644'
+    force: "{{ mm_media_overwrite_configs | bool }}"
+  tags: [containers, media, pipeviewer]
+
+- name: «Copiar mpv/mpv.conf»
+  ansible.builtin.template:
+    src: "mpv.mpv.conf.j2"
+    dest: "{{ mm_media_config_home }}/mpv/mpv.conf"
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+    mode: '0644'
+    force: "{{ mm_media_overwrite_configs | bool }}"
+  tags: [containers, media, pipeviewer]
+
+- name: «Copiar mpv/script-opts/stats.conf»
+  ansible.builtin.template:
+    src: "mpv.stats.conf.j2"
+    dest: "{{ mm_media_config_home }}/mpv/script-opts/stats.conf"
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+    mode: '0644'
+    force: "{{ mm_media_overwrite_configs | bool }}"
+  tags: [containers, media, pipeviewer]
+
+- name: «Copiar pipe-viewer/pipe-viewer.conf»
+  ansible.builtin.template:
+    src: "pv.pipe-viewer.conf.j2"
+    dest: "{{ mm_media_config_home }}/pipe-viewer/pipe-viewer.conf"
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+    mode: '0644'
+    force: "{{ mm_media_overwrite_configs | bool }}"
+  tags: [containers, media, pipeviewer]
+
+- name: «Crear subdirectorio de descargas dentro de datos»
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+  ansible.builtin.file:
+    path: "{{ mm_media_data_home }}/Downloads"
+    state: directory
+    mode: '0755'
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+  tags:
+    - containers
+    - media
+    - pipeviewer
+
+- name: «Crear directorio para el contexto de construcción de la imagen»
+  ansible.builtin.file:
+    path: "{{ mm_media_data_home }}/container"
+    state: directory
+    mode: '0755'
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+  tags:
+    - containers
+    - media
+    - pipeviewer
+
+- name: «Copiar Dockerfile de pipeviewer al contexto de construcción»
+  ansible.builtin.copy:
+    src: "Dockerfile.pipeviewer"
+    dest: "{{ mm_media_data_home }}/container/Dockerfile"
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+    mode: '0644'
+  tags:
+    - containers
+    - media
+    - pipeviewer
+
+- name: «Añadir usuario al grupo video para acceso a la GPU»
+  become: true
+  ansible.builtin.user:
+    name: "{{ mm_media_build_user }}"
+    groups: video
+    append: true
+  tags:
+    - containers
+    - media
+    - pipeviewer
+
+- name: «Comprobar si existe la imagen con la etiqueta seleccionada»
+  ansible.builtin.command:
+    cmd: "podman image exists {{ mm_media_image_name | lower }}:{{ mm_media_tag }}"
+  register: mm_media_pipeviewer_image_exists
+  changed_when: false
+  failed_when: false
+  tags:
+    - containers
+    - media
+    - pipeviewer
+  # Ejecutamos como el usuario que gestiona Podman para comprobar en su
+  # almacén local si existe la imagen.  Con become_user cambiamos de
+  # root al usuario sin privilegios.
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+
+- name: «Construir imagen de pipeviewer si no existe o si se fuerza actualización»
+  when: mm_media_update | bool or mm_media_pipeviewer_image_exists.rc != 0
+  containers.podman.podman_image:
+    name: "{{ mm_media_image_name | lower }}"
+    tag: "{{ mm_media_tag }}"
+    path: "{{ mm_media_data_home }}/container"
+    force: "{{ mm_media_update | bool }}"
+  tags:
+    - containers
+    - media
+    - pipeviewer
+  # La construcción de la imagen se realiza como el usuario
+  # configurado, de forma que se almacene en su registro rootless.
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+
+- name: "Promocionar imagen de pruebas a estable (test → latest) y conservar old"
+  when: mm_media_promote | bool
+  tags:
+    - containers
+    - media
+    - pipeviewer
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+  block:
+    - name: "Etiquetar la imagen actual latest como old"
+      ansible.builtin.command:
+        cmd: "podman image tag {{ mm_media_image_name | lower }}:latest {{ mm_media_image_name | lower }}:old"
+      changed_when: true
+
+    - name: "Promocionar la imagen de test a latest"
+      ansible.builtin.command:
+        cmd: "podman image tag {{ mm_media_image_name | lower }}:test {{ mm_media_image_name | lower }}:latest"
+      changed_when: true
+
+- name: «Crear directorio ~/.local/bin si no existe»
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+  ansible.builtin.file:
+    path: "{{ workstation_facts_home }}/.local/bin"
+    state: directory
+    mode: '0755'
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+  tags:
+    - containers
+    - media
+    - pipeviewer
+
+- name: «Instalar script de envoltorio para lanzar pipeviewer»
+  become: true
+  become_user: "{{ mm_media_build_user }}"
+  ansible.builtin.template:
+    src: "MI_mm_pipeviewer.bash.j2"
+    dest: "{{ workstation_facts_home }}/.local/bin/MI_mm_pipeviewer.bash"
+    mode: '0755'
+    owner: "{{ mm_media_build_user }}"
+    group: "{{ mm_media_build_user }}"
+  tags:
+    - containers
+    - media
+    - pipeviewer

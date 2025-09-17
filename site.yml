@@ -24,3 +24,4 @@
     - {role: security_veracrypt, tags: ['veracrypt']}
     - {role: network_dnsdot, tags: ['network', 'dns', 'dot']}
     - {role: network_wg_protonvpn, tags: ['network', 'wg', 'vpn', 'protonvpn']}
+    - {role: mm_media, tags: ['media', 'containers', 'pipeviewer']}

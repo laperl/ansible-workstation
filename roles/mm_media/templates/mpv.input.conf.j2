@@ -1,0 +1,53 @@
+# ===== Navegación =====
+RIGHT seek  5
+LEFT  seek -5
+UP    seek  60
+DOWN  seek -60
+SHIFT+RIGHT seek  1
+SHIFT+LEFT  seek -1
+
+# ===== Velocidad =====
+[ multiply speed 1.1
+] multiply speed 0.9
+BS set speed 1
+
+# ===== Volumen =====
+9 add volume -5
+0 add volume  5
+m cycle mute
+
+# ===== Subtítulos =====
+v cycle sub-visibility
+z add sub-delay -0.1
+x add sub-delay  0.1
+V cycle secondary-sid
+
+# ===== Audio =====
+# Cambiar pista de audio
+# (usa 'j' nativo si prefieres)
+J cycle audio
+
+# ===== OSD / Estadísticas =====
+i script-binding stats/display-stats-toggle   # panel detallado
+I script-binding stats/display-stats          # mostrar una vez
+o show-progress
+
+# ===== Zoom / Pantalla =====
+ENTER cycle fullscreen
+W cycle-values panscan 0 0.5
+1 add video-zoom -0.05
+2 add video-zoom  0.05
+CTRL+1 add video-align-y -0.05
+CTRL+2 add video-align-y  0.05
+
+# ===== A-B Loop =====
+l ab-loop
+
+# ===== Screenshots =====
+s screenshot               # frame
+S no-osd set screenshot-subtitles yes # con subtítulos
+
+# ===== Listas / Archivos =====
+> playlist-next force
+< playlist-prev force
+SPACE cycle pause

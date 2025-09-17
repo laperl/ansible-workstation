@@ -1,0 +1,70 @@
+---
+# Variables por defecto para el rol mm_media.  Estas opciones determinan
+# el comportamiento de construcción y ejecución del contenedor de
+# pipe‑viewer.  Están pensadas para seguir las convenciones XDG y
+# permitir actualizaciones controladas.  Todas las variables pueden
+# sobreescribirse desde el inventario o en la línea de comandos.
+
+# Indica si debe forzarse la actualización de la imagen de
+# pipe‑viewer.  Cuando es «true», la tarea de construcción volverá a
+# compilar la imagen aunque ya exista.  Además, si existe una
+# compilación previa con la etiqueta seleccionada, se sustituirá.
+mm_media_update: false
+
+# Etiqueta de la imagen a usar por defecto.  Esta etiqueta se
+# añadirá al nombre de la imagen cuando se ejecute el contenedor.  Los
+# valores típicos son «latest» (estable), «test» (en pruebas) u
+# «old» (versión anterior).  El script de envoltorio aceptará
+# sobreescribirla mediante el parámetro --tag.
+mm_media_tag: "latest"
+
+# Nombre base de la imagen que se construirá con Podman.  Es
+# importante que este valor sólo contenga caracteres en minúsculas,
+# dígitos y guiones bajos/dashes, ya que el motor OCI (Podman) no
+# acepta mayúsculas en el nombre del repositorio.  Se usa el
+# prefijo «mi_» en lugar de «MI_» para evitar errores como «invalid
+# reference format: repository name must be lowercase».
+mm_media_image_name: "mi_podman_pipeviewer"
+
+# Nombre del contenedor cuando se ejecute pipe‑viewer.  Este nombre
+# únicamente se usa al lanzar el contenedor con Podman.  No debe
+# contener espacios.
+mm_media_container_name: "pipeviewer"
+
+# Usuario que construirá y gestionará las imágenes de Podman.  Por
+# defecto se utiliza el usuario detectado por el rol workstation_facts.
+# Establecer esta variable permite forzar la compilación y
+# etiquetado de la imagen en otro usuario si fuera necesario.
+mm_media_build_user: "{{ workstation_facts_user }}"
+
+# Home del usuario que construye imágenes Podman
+mm_media_build_home: "{{ workstation_facts_home }}"
+
+# Directorio base para datos persistentes según el estándar XDG.
+# Por defecto se toma XDG_DATA_HOME o ~/.local/share y se añade un
+# subdirectorio específico de la aplicación.  Aquí se almacenarán
+# tanto el contexto de construcción de la imagen como ficheros
+# descargados (p.ej. la carpeta Downloads).
+mm_media_data_home: "{{ mm_media_build_home }}/.local/share/MI_podman_pipeviewer"
+
+# Directorio base para la configuración del usuario según XDG.
+# Contendrá subdirectorios para mpv, pipe‑viewer y pulse.  Permite
+# separar la configuración del contenedor de la configuración global
+# del sistema.
+mm_media_config_home: "{{ mm_media_build_home }}/.config/MI_podman_pipeviewer"
+
+# Directorio base para la caché según XDG.  En este directorio
+# almacenaremos archivos temporales y cachés creadas por pipe‑viewer
+# dentro del contenedor.
+mm_media_cache_home: "{{ mm_media_build_home }}/.cache/MI_podman_pipeviewer"
+
+# Si true, sobreescribe configs existentes; si false, sólo crea si no existen
+mm_media_overwrite_configs: true
+
+# Indica si se deben promocionar las etiquetas de imágenes.  Cuando es
+# «true», el rol etiquetará la imagen actual «latest» como «old» y
+# la imagen «test» como «latest».  Esta operación se realiza al
+# final de la ejecución y permite consolidar una versión en pruebas
+# como estable.  Sólo se tendrá en cuenta si existen ambas
+# etiquetas.
+mm_media_promote: false

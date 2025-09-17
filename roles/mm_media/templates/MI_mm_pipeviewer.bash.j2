@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+#
+# Script generado por Ansible para lanzar pipe-viewer dentro de un
+# contenedor Podman.  Permite escoger la etiqueta de la imagen
+# mediante el parámetro --tag <etiqueta>.  Por defecto se usa la
+# etiqueta configurada en la variable mm_media_tag ({{ mm_media_tag }}).
+#
+# Uso:
+#   MI_mm_pipeviewer.bash [--tag <etiqueta>]
+#
+# Ejemplos:
+#   MI_mm_pipeviewer.bash           # usa la imagen {{ mm_media_image_name }}:{{ mm_media_tag }}
+#   MI_mm_pipeviewer.bash --tag test  # usa la imagen {{ mm_media_image_name }}:test
+#
+set -euo pipefail
+
+# Imagen base con etiqueta por defecto.  Convertimos el nombre a
+# minúsculas para cumplir con el formato de nombres de imagen de
+# Podman/OCI.
+IMG="{{ mm_media_image_name | lower }}:{{ mm_media_tag }}"
+
+# Etiqueta alternativa proporcionada por el usuario
+TAG=""
+
+# Parseo de argumentos.  Sólo se acepta un argumento opcional
+# --tag <etiqueta>.  Cualquier otro argumento provocará la salida con
+# un mensaje de uso.
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --tag)
+      shift
+      # Validar que hay valor y que la etiqueta es válida (latest|test|old u otro patrón simple)
+      if [[ $# -eq 0 || "$1" == --* ]]; then
+        echo "Error: --tag requiere un valor"
+        exit 2
+      fi
+      TAG="$1"
+      ;;
+    *)
+      echo "Uso: $0 [--tag <etiqueta>]"
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+# Si el usuario especifica una etiqueta, actualizamos la imagen
+if [[ -n "$TAG" ]]; then
+  # Forzamos minúsculas y validamos formato simple de etiqueta (OCI)
+  TAG="${TAG,,}"
+  if ! [[ "$TAG" =~ ^[a-z0-9._-]+$ ]]; then
+    echo "Error: etiqueta inválida '$TAG'"
+    exit 2
+  fi
+  IMG="{{ mm_media_image_name | lower }}:${TAG}"
+fi
+
+# Comprobación final del ref (evita ':', vacío, etc.)
+if ! [[ "$IMG" =~ ^[a-z0-9._/-]+:[a-z0-9._-]+$ ]]; then
+  echo "Error: referencia de imagen inválida: '$IMG'"
+  exit 2
+fi
+
+# Detectar XDG_RUNTIME_DIR de forma robusta (suele ser /run/user/uid)
+XRD="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+# Detectar entorno gráfico: Wayland, X11 o sin GUI
+mode="NONE"
+if [[ -n "${WAYLAND_DISPLAY:-}" && -S "${XRD}/${WAYLAND_DISPLAY}" ]]; then
+  mode="WAYLAND"
+elif [[ -n "${DISPLAY:-}" ]]; then
+  dnum="${DISPLAY#:}"
+  [[ -S "/tmp/.X11-unix/X${dnum}" ]] && mode="X11" || mode="NONE"
+fi
+
+# Comprobar disponibilidad de audio (PipeWire/Pulse), GPU y red
+audio_ok="no"
+[[ -S "${XRD}/pulse/native" ]] && audio_ok="yes"
+gpu_ok="no"
+[[ -e /dev/dri/renderD128 || -e /dev/dri/card0 ]] && gpu_ok="yes"
+net_ok="no"
+getent hosts github.com >/dev/null 2>&1 && net_ok="yes" || true
+
+echo "==> Display: ${mode} | Audio: ${audio_ok} | GPU: ${gpu_ok} | Red: ${net_ok}"
+
+# Construir argumentos comunes para podman run.  Se utilizan
+# configuraciones seguras: sin privilegios adicionales, sistema de
+# archivos de sólo lectura y asignación del usuario real.
+args=(
+  --name "{{ mm_media_container_name }}"
+  --rm -it
+  --userns=keep-id
+  --user "$(id -u)":"$(id -g)"
+  --group-add keep-groups
+  --cap-drop=ALL
+  --security-opt=no-new-privileges
+  --read-only
+  --tmpfs /tmp:exec,mode=1777
+  --tmpfs /dev/shm:rw,size=512m
+  -e XDG_RUNTIME_DIR="$XRD"
+  -e HOME="/home/appuser"
+  -v "{{ mm_media_config_home }}/mpv:/home/appuser/.config/mpv:ro"
+  -v "{{ mm_media_config_home }}/pulse:/home/appuser/.config/pulse:rw"
+  -v "{{ mm_media_config_home }}/pipe-viewer:/home/appuser/.config/pipe-viewer:rw"
+  -v "{{ mm_media_cache_home }}:/home/appuser/.cache:rw"
+  -v "{{ mm_media_data_home }}/Downloads:/home/appuser/Downloads:rw"
+)
+
+# Configurar montajes de display según el modo detectado
+case "$mode" in
+  WAYLAND)
+    # Para Wayland montamos el socket y ajustamos la variable
+    args+=( -e "WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}"
+            -v "${XRD}/${WAYLAND_DISPLAY:-wayland-0}:${XRD}/${WAYLAND_DISPLAY:-wayland-0}:rw" )
+    ;;
+  X11)
+    # Para X11 montamos el DISPLAY, XAUTHORITY y los sockets de X11.
+    args+=( -e "DISPLAY=${DISPLAY:-:0}"
+            -e "XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}"
+            -v /tmp/.X11-unix:/tmp/.X11-unix:ro )
+    # Si existe el archivo de autenticación, lo montamos en el mismo
+    # directorio del contenedor.  Esto evita usar xhost y es más seguro.
+    if [[ -n "${XAUTHORITY:-}" && -f "${XAUTHORITY}" ]]; then
+      args+=( -v "${XAUTHORITY}:${XAUTHORITY}:ro" )
+    fi
+    ;;
+  *)
+    echo ">> Aviso: no se detectó X11/Wayland. Se lanzará sin GUI."
+    ;;
+esac
+
+# Montaje de audio si existe el socket Pulse/PipeWire
+if [[ "$audio_ok" == "yes" ]]; then
+  args+=( -e "PULSE_SERVER=unix:${XRD}/pulse/native"
+          -v "${XRD}/pulse:${XRD}/pulse:rw" )
+else
+  echo ">> Aviso: no se detectó socket Pulse/PipeWire. Sin audio."
+fi
+
+# Montaje de GPU si existe acceso a /dev/dri
+if [[ "$gpu_ok" == "yes" ]]; then
+  args+=( --device /dev/dri )
+fi
+
+# Avisar si no hay red
+[[ "$net_ok" == "no" ]] && echo ">> Aviso: sin red; pipe-viewer no podrá buscar/streaming."
+
+# Comando a ejecutar en el contenedor: ejecutamos pipe-viewer con mpv
+COMMAND='/usr/bin/pipe-viewer --player=mpv'
+echo "Imagen: ${IMG}"
+echo "Comando: ${COMMAND}"
+echo "ARGS=${args[@]}"
+
+exec podman run "${args[@]}" "${IMG}" bash -lc "${COMMAND}"

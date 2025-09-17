@@ -1,0 +1,34 @@
+---
+# Tareas principales del rol mm_media.  Este rol agrupa las tareas
+# relacionadas con la instalación y gestión de aplicaciones multimedia.
+# Actualmente sólo gestiona pipe‑viewer a través de un contenedor
+# Podman.  Se incluyen etiquetas para que el rol pueda ejecutarse
+# selectivamente con ``--tags``.
+
+# Si el usuario de build es distinto al de workstation_facts, recalculemos su HOME.
+- name: «Obtener HOME real de mm_media_build_user si difiere de workstation_facts_user»
+  when: mm_media_build_user != workstation_facts_user
+  block:
+    - name: «Consultar /etc/passwd con getent»
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ mm_media_build_user }}"
+
+    - name: «Fijar mm_media_build_home al HOME del usuario»
+      ansible.builtin.set_fact:
+        mm_media_build_home: "{{ ansible_facts.getent_passwd[mm_media_build_user][4] }}"
+
+    - name: «Recalcular rutas XDG en base al HOME real»
+      ansible.builtin.set_fact:
+        mm_media_data_home: "{{ mm_media_build_home }}/.local/share/mi_podman_pipeviewer"
+        mm_media_config_home: "{{ mm_media_build_home }}/.config/mi_podman_pipeviewer"
+        mm_media_cache_home: "{{ mm_media_build_home }}/.cache/mi_podman_pipeviewer"
+
+# Verifica que "podman" este en la variable dentro de group_vars/all.yml
+- name: Incluir tareas específicas de pipeviewer
+  ansible.builtin.include_tasks: pipeviewer.yml
+  when: container_runtime | default('podman') == 'podman'
+  tags:
+    - containers
+    - media
+    - pipeviewer

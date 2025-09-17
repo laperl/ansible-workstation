@@ -35,3 +35,6 @@ vpn: ## Instala wireguard para usar la VPN de protonvpn
 
 network: ## Instala "dns", "vpn"
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t network
+
+pipeviewer: ## Instala "pipeviewer", "yt-dlp" dentro de podman para ver videos de youtube
+	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t pipeviewer

@@ -1,0 +1,7 @@
+---
+# Dependencias del rol mm_media.
+# Esto garantiza que, antes de ejecutar mm_media, se haya pasado por el rol
+# "containers" que instala Podman según la variable container_runtime.
+
+dependencies:
+  - role: containers

@@ -1,0 +1,26 @@
+FROM alpine:latest
+
+# Herramientas GUI/audio/GPU
+RUN apk add --no-cache \
+      pipe-viewer mpv yt-dlp ffmpeg \
+      xeyes mesa-demos libva-utils vdpauinfo \
+      pulseaudio-utils ca-certificates tzdata bash coreutils procps \
+      intel-media-driver \
+      libplacebo \
+      libdrm \
+      fontconfig ttf-dejavu
+
+# (Fallback si pipe-viewer no está en tu repo: usa youtube-viewer)
+# RUN apk add --no-cache youtube-viewer mpv yt-dlp ffmpeg ...
+
+# Reconstruye la caché de fuentes que usa fontconfig (de la que depende libass y por tanto mpv).
+RUN fc-cache -f
+
+# Usuario sin root
+RUN adduser -D -u 1000 appuser
+USER appuser
+ENV HOME=/home/appuser
+WORKDIR /home/appuser
+
+# Por defecto queda vivo para exec/tests
+CMD ["sleep","infinity"]

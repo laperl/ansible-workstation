@@ -1,0 +1,3 @@
+# TODO
+
+- Seria interesante que a nivel del role workstation_facts se determinara la tarjeta gráfica para luego software como mpv pueda usar las capacidades. Ahora mismo para el portatil pequeño sí funciona la acelaracion de la grafica intel pero no en el otro con la nvidia. Puedo aprovechar este facts a la hora de poner en marcha el role gamming o ia.

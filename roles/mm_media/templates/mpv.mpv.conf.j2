@@ -1,0 +1,87 @@
+# ========= Núcleo / UX =========
+profile=high-quality
+force-window=yes
+osc=yes
+osd-level=3
+osd-bar
+term-osd-bar=yes
+#term-playing-msg="▶ ${media-title} [${time-pos}/${duration}]"
+term-playing-msg="▶ ${media-title} [${time-pos}/${duration}] (${percent-pos}%)"
+save-position-on-quit
+screenshot-format=png
+screenshot-dir=~/Pictures/mpv-shots
+
+# ========= Red / streaming =========
+cache=yes
+demuxer-max-bytes=256MiB
+demuxer-readahead-secs=20
+# yt-dlp/youtube-dl (hook nativo de mpv); límite 1080p por defecto (ajusta si quieres 1440/2160)
+ytdl-format=bv*[height<=1080][vcodec!=av01]+ba/best
+
+# ========= Vídeo (mpv ≥ 0.40) =========
+vo=gpu-next
+gpu-api=auto
+gpu-context=auto
+hwdec=auto-safe
+
+# Escalado de alta calidad
+scale=ewa_lanczossharp
+cscale=ewa_lanczossharp
+dscale=mitchell
+correct-downscaling=yes
+
+# Suavizado de movimiento (judder ↓) — desactívalo si no te gusta
+interpolation=yes
+tscale=oversample
+video-sync=display-resample
+
+# HDR (si tienes contenido HDR; mpv decide según fuente)
+# Opciones seguras en SDR: mapea a BT.709 con buen resultado
+tone-mapping=mobius
+target-colorspace-hint=yes
+
+# ========= Audio =========
+audio-file-auto=fuzzy
+volume-max=200
+# Esta carga mas la CPU que la de acompresor pero es mejor
+#af=lavfi=[loudnorm=I=-16:TP=-1.5:LRA=11]
+af=acompressor
+
+
+# ========= Subtítulos / OSD (requiere fontconfig + fuentes) =========
+sub-auto=fuzzy
+sub-font="DejaVu Sans"
+sub-font-size=48
+sub-bold=yes
+sub-shadow-offset=2
+sub-border-size=1.5
+sub-color="#FFFFFFFF"
+sub-border-color="#000000FF"
+
+# ========= Scripts nativos =========
+# stats.lua viene con mpv — lo activamos aquí
+#script=stats
+
+# ========= Perfiles útiles =========
+# Actívalos con: mpv --profile=laptop-battery (o en pipe-viewer con argumentos)
+
+# 1) Ahorro batería (menos CPU/GPU)
+[profile=laptop-battery]
+vo=gpu-next
+interpolation=no
+video-sync=audio
+scale=bilinear
+cscale=bilinear
+dscale=bilinear
+hwdec=auto-safe
+ytdl-format=bv*[height<=720]+ba/best
+
+# 2) Streaming inestable (buffer agresivo)
+[profile=streaming]
+demuxer-max-bytes=512MiB
+demuxer-readahead-secs=60
+
+# 3) HDR a SDR “bonito” (si notas imagen lavada)
+[profile=hdr2sdr]
+tone-mapping=hable
+gamut-mapping-mode=clip

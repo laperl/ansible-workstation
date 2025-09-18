@@ -252,6 +252,13 @@ sops secrets/vars.sops.yaml
 
 ---
 
+## Roles adicionales
+
+- **mm_media (pipe‑viewer)**: despliega pipe‑viewer sin anuncios en un contenedor Podman rootless. Consulta [roles/mm_media/README.md](roles/mm_media/README.md) para más detalles.
+  La guía ampliada y las consideraciones de seguridad están en `docs/mm_media_pipeviewer.md` y `docs/mm_media_security.md`.
+
+---
+
 ## Troubleshooting rápido
 
 * **Permisos sudo**: usa `-K` (pedirá password).

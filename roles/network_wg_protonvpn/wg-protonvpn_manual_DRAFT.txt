@@ -1,0 +1,104 @@
+NS=vpn1
+VETH_HOST=veth-${NS}     # extremo que se QUEDA en el host
+VETH_NS=veth1            # extremo que va DENTRO del netns (evitamos llamarlo 'eth0')
+SUBNET=192.168.254.0/30   # red punto a punto para veth
+HOST_IP=192.168.254.1     # IP en el host (gw)
+NS_IP=192.168.254.2       # IP en el netns
+WAN_IF=wlp4s0             # tu interfaz real con salida a Internet
+WG_IF=wg0                 # nombre de la interfaz WireGuard dentro del netns
+WG_ADDR=10.2.0.2/32       # la Address del cliente del .conf original de Proton
+CONF=/ruta/al/wg-vpn1_purowg.conf  # el .conf sin Address/DNS/etc
+DNS_VPN=10.2.0.1          # DNS que quieras dentro del ns (p.ej. el de Proton)
+ENDPOINT=es-xx.protonvpn.net:51820 # el Endpoint del .conf (host:puerto)
+
+sudo ip netns add vpn1
+sudo ip -n vpn1 link set lo up
+ip netns list
+# Encara no tenen IPs
+ip -n vpn1 addr show lo
+sudo ip -n vpn1 addr show lo
+# Afegeixo un parell de interfaces de xarxa que funcionen com un cable de xarxa,
+# tot lo que entre per un surt per l'altre i al reves
+# ip link add → crea una interfaz de red nueva.
+# veth-vpn1 → será el nombre de la primera interfaz.
+# type veth → el tipo es “veth” (virtual ethernet), es decir, un cable de red virtual.
+#peer name veth1 → crea automáticamente la otra punta del cable y le pone de nombre veth1
+sudo ip link add veth-vpn1 type veth peer name veth1
+# Ara punxem el un extrem del cable al netns vpn1:
+# * Un extremo (veth-vpn1) sigue en el host (tu sistema principal).
+# * El otro extremo (veth1) está dentro del namespace vpn1.
+sudo ip link set veth1 netns vpn1
+ip l show veth-vpn1
+# Donem IPs i aixequem les interfaces:
+sudo ip addr add 192.168.254.1/30 dev veth-vpn1
+sudo ip l set veth-vpn1 up
+ip -o -4 a
+sudo ip -n vpn1 addr add 192.168.254.2/30 dev veth1
+sudo ip -n vpn1 l set veth1 up
+sudo ip -n vpn1 -o -4 a
+# Afegim les ruta per defecte
+sudo ip -n vpn1 route add default via 192.168.254.1 dev veth1
+sudo ip netns exec vpn1 ip r
+sudo ip netns exec vpn1 ping 192.168.254.1
+# PASO 3 Habilitar forwarding + NAT en el host
+# Habilitar forwarding IPv4 (persistente: sysctl.conf si quieres)
+echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward >/dev/null
+# NAT desde la subred del namespace hacia Internet por tu interfaz real
+sudo iptables -t nat -A POSTROUTING -s "$SUBNET" -o "$WAN_IF" -j MASQUERADE
+-> Verifico
+cat /proc/sys/net/ipv4/ip_forward      # Debe ser 1
+sudo iptables -t nat -S POSTROUTING | grep MASQUERADE # Debe listar tu regla
+# PASO 4 Dar salida provisional al netns (aún sin WG) y probar Internet
+# Ruta por defecto del namespace hacia el host (gateway)
+sudo ip -n "$NS" route add default via "$HOST_IP" dev "$VETH_NS"
+# Prueba conectividad básica (ICMP)
+sudo ip netns exec "$NS" ping -c1 1.1.1.1
+sudo ip -n "$NS" route
+# PASO 5 Resolver la IP del Endpoint y fijar ruta directa a él
+# La IP del endpoint es la que ens dona el fiter de configuració de
+# wg protonvpn no la versió de wg sino la del .conf que funciona amb
+# wg-quick
+ENDPOINT_HOST=${ENDPOINT%:*}
+ENDPOINT_PORT=${ENDPOINT#*:}
+EP_IP=$(getent ahostsv4 "$ENDPOINT_HOST" | awk 'NR==1{print $1}')
+echo "Endpoint $ENDPOINT_HOST -> $EP_IP:$ENDPOINT_PORT"
+# Ruta específica dentro del ns HACIA el Endpoint por el veth (no por wg0)
+sudo ip -n "$NS" route add "$EP_IP"/32 via "$HOST_IP" dev "$VETH_NS"
+-> Verifica
+sudo ip -n "$NS" route get "$EP_IP"
+# Debe mostrar salida via $VETH_NS (eth0) hacia $HOST_IP
+# PASO 6 Crear y mover la interfaz WireGuard al namespace
+sudo ip link add "$WG_IF" type wireguard
+sudo ip link set "$WG_IF" netns "$NS"
+-> verifica
+ip link show | grep "$WG_IF"          # No debe aparecer en el host
+sudo ip -n "$NS" link show "$WG_IF"   # Debe aparecer (DOWN por ahora) en el ns
+# PASO 7 Cargar la configuración “pura wg” y levantar la interfaz
+# Cargar claves, peers, AllowedIPs, Endpoint, Keepalive...
+sudo ip netns exec "$NS" wg setconf "$WG_IF" "$CONF"
+# Asignar la IP del túnel (la que venía en Address= del .conf original)
+sudo ip -n "$NS" address add "$WG_ADDR" dev "$WG_IF"
+# Levantar wg0
+sudo ip -n "$NS" link set "$WG_IF" up
+-> Verifica
+# Ojo: siempre dentro del ns
+sudo ip netns exec "$NS" wg show
+# Debe mostrar tu peer con endpoint $EP_IP:$ENDPOINT_PORT, latest handshake (puede tardar un momento)
+# PASO 8 Poner la ruta por defecto del namespace por la VPN
+# Todo el tráfico del ns por el túnel (split total dentro del ns)
+sudo ip -n "$NS" route replace default dev "$WG_IF"
+-> Verifica
+sudo ip -n "$NS" route
+# Debe salir: default dev wg0  (y mantener la ruta /32 al $EP_IP via eth0)
+# PASO 9 DNS propio para el namespace (sin fugas)
+sudo mkdir -p /etc/netns/"$NS"
+echo "nameserver $DNS_VPN" | sudo tee /etc/netns/"$NS"/resolv.conf >/dev/null
+# (opcional) probar resolución
+sudo ip netns exec "$NS" getent hosts example.com
+-> Verifica
+sudo ip netns exec "$NS" cat /etc/resolv.conf
+# Debe mostrar nameserver $DNS_VPN
+sudo ip netns exec vpn1  drill pet.es
+# Paso 10 Probar que el tráfico sale por ProtonVPN
+# Sustituye 'jaume' por tu usuario normal para no correr como root
+sudo ip netns exec "$NS" sudo -u jaume curl -s https://ifconfig.me

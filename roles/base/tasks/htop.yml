@@ -1,0 +1,38 @@
+---
+# roles/base/tasks/htop.yml
+#
+# 🧩 Caso especial: htop
+# ----------------------
+# htop sobrescribe su configuración (htoprc) al guardar cambios desde la interfaz
+# y, además, puede reemplazar un symlink mediante create+rename.
+# Por eso **NO** usamos Stow aquí: en lugar de enlazar, **copiamos** el fichero
+# desde este rol a ~/.config/htop/htoprc, evitando que una escritura rompa el
+# enlace y, de paso, asegurando que el repositorio no se modifica.
+#
+# Nota: el fichero fuente se guarda en roles/base/files/htop/htoprc
+# (ver sección 3).
+
+- name: Soft htop | asegurar directorio de config
+  ansible.builtin.file:
+    path: "{{ workstation_facts_home }}/.config/htop"
+    state: directory
+    mode: "0755"
+    owner: "{{ workstation_facts_user }}"
+    group: "{{ workstation_facts_user }}"
+  tags: ['dotfiles', 'htop']
+
+- name: Soft htop | desplegar htoprc (copia, NO symlink)
+  ansible.builtin.copy:
+    src: "htoprc"   # relativo a roles/base/files/
+    dest: "{{ workstation_facts_home }}/.config/htop/htoprc"
+    mode: "0664"
+    owner: "{{ workstation_facts_user }}"
+    group: "{{ workstation_facts_user }}"
+  tags: ['dotfiles', 'htop']
+
+# (Opcional) Si algún día quieres blindarlo:
+# - name: Soft htop | marcar inmutable (ext4, etc.)
+#   ansible.builtin.command: chattr +i {{ workstation_facts_home }}/.config/htop/htoprc
+#   changed_when: false
+#   failed_when: false
+#   tags: ['dotfiles', 'htop']

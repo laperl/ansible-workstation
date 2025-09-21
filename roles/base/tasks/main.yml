@@ -104,6 +104,11 @@
       changed_when: false
       tags: ['dotfiles']
 
+# 7.b) Caso especial de htop (Ver dotfiles/README.md)
+- name: "Soft htop: caso especial (copy, not stow)"
+  ansible.builtin.import_tasks: htop.yml
+  tags: ['dotfiles', 'htop']
+
 # 8) Instalo sops para manejar secretos
 - name: Instalar SOPS en el controlador
   ansible.builtin.include_role:

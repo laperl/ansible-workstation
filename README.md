@@ -11,12 +11,17 @@ Automatiza tu estación de trabajo **Pop!OS** (Ubuntu) con Ansible: paquetes bas
 * Pop!OS / Ubuntu recién instalado (otras distros: ver *Extender a otras distros*).
 * Acceso `sudo`.
 * Conexión a Internet.
+* IMPORTANTE: No instalar ansible con apt, luego lo hará automáticamente el **bootstrap.bash**
 
 Todo lo utilizado (Ansible, Stow, SOPS, TPM, Podman) es **gratis**.
 
 ---
 
 ## Uso rápido (local)
+
+### Prerrequisitos
+
+Instalar pops como indico en el archivo: `docs/sops_uso.md`
 
 ```bash
 # 1) Clona este repo en tu $HOME

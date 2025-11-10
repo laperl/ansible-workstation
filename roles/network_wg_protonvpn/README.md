@@ -7,7 +7,7 @@ Desplegar una o varias **ProtonVPN (WireGuard)** dentro de **network namespaces*
 ## Requisitos
 
 * Pop!\_OS/Ubuntu 22.04 con `wireguard-tools` (`wg`, `wg-quick`) y `iptables`.
-* En el **controlador Ansible**: binario `sops` en `PATH`.
+* En el **controlador Ansible**: binario `sops` en `PATH` (Ver docs/sops_uso.md).
 * Colección `community.sops` (ya declarada en `requirements.yml`).
 
 ## Variables (API)

@@ -25,3 +25,5 @@
     - {role: network_dnsdot, tags: ['network', 'dns', 'dot']}
     - {role: network_wg_protonvpn, tags: ['network', 'wg', 'vpn', 'protonvpn']}
     - {role: mm_media, tags: ['media', 'containers', 'pipeviewer']}
+    # Personas role: deploy digital identities and browsers
+    # - {role: personas, tags: ['personas']}

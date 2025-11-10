@@ -12,15 +12,8 @@ SOPS es un editor de ficheros **cifrados** que soporta YAML/JSON/ENV/INI (y bina
 
 ## 2) Instalación en Pop!\_OS / Ubuntu
 
-1. Descarga el `.deb` estable desde *Releases* de SOPS.
-2. Instala:
-
-   ```bash
-   sudo dpkg -i ~/Descargas/sops_*.deb || sudo apt -f install
-   sops --version
-   ```
-
-> Alternativa: empaquetados de terceros (p. ej. repos WakeMeOps) si prefieres `apt install sops`.
+* Se puede instalar siguiendo estos pasos (https://github.com/getsops/sops/releases)
+* Aunque puedes variar un poco si descargas kuego `mv  el binario a /usr/local/bin` sin renombrar y por ultimo haces un `ln -s` y luego un `chmod +x` al original.
 
 ---
 

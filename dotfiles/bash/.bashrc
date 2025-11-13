@@ -118,6 +118,7 @@ fi
 export MI_REPO_GIT="$HOME/Documents/repo-github"
 
 # BEGIN POPOS-EDITOR
+export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"
 export VISUAL="$EDITOR"
 # END POPOS-EDITOR

@@ -9,7 +9,7 @@
 # pipe‑viewer.  Cuando es «true», la tarea de construcción volverá a
 # compilar la imagen aunque ya exista.  Además, si existe una
 # compilación previa con la etiqueta seleccionada, se sustituirá.
-mm_media_update: false
+mm_media_update: true
 
 # Etiqueta de la imagen a usar por defecto.  Esta etiqueta se
 # añadirá al nombre de la imagen cuando se ejecute el contenedor.  Los

@@ -1,9 +1,0 @@
----
-- name: Instalar wrapper /usr/local/bin/vc (atajo para CLI)
-  ansible.builtin.copy:
-    src: files/vc.sh
-    dest: /usr/local/bin/vc
-    owner: root
-    group: root
-    mode: '0755'
-  become: true

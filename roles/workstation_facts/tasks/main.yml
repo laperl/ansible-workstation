@@ -7,7 +7,7 @@
 - name: "Resolver usuario de la workstation"
   ansible.builtin.set_fact:
     workstation_facts_user: >-
-      {{ ansible_env.SUDO_USER | default(ansible_user_id, true) |
+      {{ ansible_facts['env']['SUDO_USER'] | default(ansible_facts['user_id'], true) |
       string | trim }}
   tags: ['always']
 
@@ -15,20 +15,18 @@
 # Podemos usar directamente ansible_uid/gid/home
 - name: "Fijar UID/GID/HOME del usuario (directo)"
   ansible.builtin.set_fact:
-    workstation_facts_uid: "{{ ansible_uid }}"
-    workstation_facts_gid: "{{ ansible_gid }}"
-    workstation_facts_home: "{{ ansible_env.HOME }}"
-  when: workstation_facts_user == ansible_user_id
+    workstation_facts_uid: "{{ ansible_facts['uid'] }}"
+    workstation_facts_gid: "{{ ansible_facts['gid'] }}"
+    workstation_facts_home: "{{ ansible_facts['env']['HOME'] }}"
+  when: workstation_facts_user == ansible_facts['user_id']
   tags: ['always']
 
 - name: "DEBUG: quién es workstation_facts_user y fuentes"
   ansible.builtin.debug:
     msg:
-      - "workstation_facts_user={{ workstation_facts_user |
-        default('UNDEFINED') | quote }}"
-      - "ansible_env.SUDO_USER={{ ansible_env.SUDO_USER |
-        default('UNDEFINED') | quote }}"
-      - "ansible_user_id={{ ansible_user_id | default('UNDEFINED') | quote }}"
+      - "workstation_facts_user={{ workstation_facts_user | default('UNDEFINED') | quote }}"
+      - "ansible_facts['env']['SUDO_USER']={{ ansible_facts['env']['SUDO_USER'] | default('UNDEFINED') | quote }}"
+      - "ansible_facts['user_id']={{ ansible_facts['user_id'] | default('UNDEFINED') | quote }}"
       - "type(workstation_facts_user)={{ workstation_facts_user | type_debug }}"
   tags: ['always']
 
@@ -38,26 +36,23 @@
   ansible.builtin.getent:
     database: passwd
     key: "{{ workstation_facts_user }}"
-  when: workstation_facts_user != ansible_user_id
+  when: workstation_facts_user != ansible_facts['user_id']
   tags: ['always']
 
 - name: "Fijar UID/GID/HOME del usuario (getent)"
   ansible.builtin.set_fact:
-    workstation_facts_uid: "{{ getent_passwd[workstation_facts_user][1] }}"
-    workstation_facts_gid: "{{ getent_passwd[workstation_facts_user][2] }}"
-    workstation_facts_home: "{{ getent_passwd[workstation_facts_user][4] }}"
-  when: workstation_facts_user != ansible_user_id
+    workstation_facts_uid: "{{ ansible_facts['getent_passwd'][workstation_facts_user][1] }}"
+    workstation_facts_gid: "{{ ansible_facts['getent_passwd'][workstation_facts_user][2] }}"
+    workstation_facts_home: "{{ ansible_facts['getent_passwd'][workstation_facts_user][4] }}"
+  when: workstation_facts_user != ansible_facts['user_id']
   tags: ['always']
 
 - name: "Sanity check de HOME"
   ansible.builtin.assert:
     that:
       - workstation_facts_home is string
-      - workstation_facts_home.startswith('/home/') or
-        workstation_facts_home == '/root'
-    fail_msg: >-
-      "workstation_facts_home={{ workstation_facts_home }}
-      no parece un HOME válido; revisa índices de getent."
+      - workstation_facts_home.startswith('/home/') or workstation_facts_home == '/root'
+    fail_msg: "workstation_facts_home={{ workstation_facts_home }} no parece un HOME válido."
   tags: ['always']
 
 # Verificación de HOME
@@ -70,9 +65,7 @@
 - name: "Abort si el HOME no existe"
   ansible.builtin.assert:
     that: workstation_facts_home_stat.stat.exists
-    fail_msg: >-
-      El HOME {{ workstation_facts_home }} no existe.
-      Ajusta workstation_facts_user.
+    fail_msg: "El HOME {{ workstation_facts_home }} no existe. Ajusta workstation_facts_user."
   tags: ['always']
 
 # Opcional: habilitar linger

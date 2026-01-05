@@ -1,4 +1,0 @@
----
-dependencies:
-  - role: storage_exfat
-    tags: ['always']   # garantiza que corre incluso con --tags veracrypt

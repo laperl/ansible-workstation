@@ -115,8 +115,9 @@ if ! shopt -oq posix; then
     . /etc/bash_completion
   fi
 fi
-export MI_REPO_GIT="$HOME/Documents/repo-github"
 
+# Created by `pipx` on 2026-01-05 17:10:50
+export PATH="$PATH:/home/pop24/.local/bin"
 # BEGIN POPOS-EDITOR
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR="nvim"

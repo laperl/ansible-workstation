@@ -1,0 +1,14 @@
+---
+# Aquí definimos la "intención". Es el único sitio que deberías tocar para cambiar la versión que deseas instalar.
+
+# Versión deseada de VeraCrypt
+veracrypt_version: "1.26.7"
+
+# Arquitectura por defecto (se puede sobreescribir si fuera necesario)
+veracrypt_arch: "amd64"
+
+# URL del repositorio para el Banner de GitHub Watch
+veracrypt_github_url: "https://github.com/veracrypt/VeraCrypt"
+
+# Limpieza automática de instaladores tras el éxito
+veracrypt_cleanup_installers: true

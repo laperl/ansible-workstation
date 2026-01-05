@@ -1,0 +1,12 @@
+---
+# Extensiones y herramientas específicas
+veracrypt_pkg_ext: "deb"
+veracrypt_dep_packages: [gnupg, gpg-agent, ca-certificates, xz-utils, fuse3]
+
+# Construcción de la URL de descarga (Launchpad es el mirror oficial para DEB)
+# Usamos la serie de la distro (ej. 24.04) detectada por ansible_facts
+veracrypt_os_series: "{{ ansible_facts['distribution_version'] }}"
+
+veracrypt_deb_url: "https://launchpad.net/veracrypt/trunk/{{ veracrypt_version }}/+download/veracrypt-{{ veracrypt_version }}-Ubuntu-{{ veracrypt_os_series }}-{{ veracrypt_arch }}.deb"
+veracrypt_sig_url: "{{ veracrypt_deb_url }}.sig"
+veracrypt_pgp_key_url: "https://www.idrix.fr/VeraCrypt/VeraCrypt_PGP_public_key.asc"

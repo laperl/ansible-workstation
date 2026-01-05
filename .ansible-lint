@@ -1,0 +1,19 @@
+---
+# Reglas que un Guru ignora para mantener la salud mental
+skip_list:
+  # Line too long (ya lo controla yamllint a su manera)
+  - '210'
+  # A veces el nombre corto es más legible en roles propios
+  - 'fqcn'
+  # No nos importa el orden alfabético de las keys
+  - 'key-order'
+  # Permitir nombres de tareas simples si son claras
+  - 'name[root]'
+  # Ignoramos prefijos obligatorios de variables
+  - 'var-naming'
+
+# Excluir archivos que no deben ser analizados como código Ansible
+exclude_paths:
+  - .cache/
+  - collections/
+  - secrets/

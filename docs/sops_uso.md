@@ -12,6 +12,10 @@ SOPS es un editor de ficheros **cifrados** que soporta YAML/JSON/ENV/INI (y bina
 
 ## 2) Instalación en Pop!\_OS / Ubuntu
 
+> IMPORTANTE: No hace falta instalarlo ya que el mismo fichero de 'bootstrap.sh' lo hace!!!
+
+> Estos pasos (del 2 para delante) se pueden evitar si ya lo que queremos es restaurar el que ya tenemos en 'keepas'. Solo recordar de crear el archivo '~/.config/sops/age/keys.txt' y ponerle permisos '400'.
+
 * Se puede instalar siguiendo estos pasos (https://github.com/getsops/sops/releases)
 * Aunque puedes variar un poco si descargas kuego `mv  el binario a /usr/local/bin` sin renombrar y por ultimo haces un `ln -s` y luego un `chmod +x` al original.
 

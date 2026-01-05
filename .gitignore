@@ -17,6 +17,8 @@ __pycache__/
 *.code-workspace
 
 # --- ANSIBLE ---
+# Ignorar archivos temporales de Ansible
+.ansible_cache/
 *.retry                 # archivos de reintento (por si se generan)
 .ansible/
 .ansible_async/
@@ -69,3 +71,9 @@ logs/
 group_vars/all/*.yml
 # …pero permitir los cifrados SOPS
 !group_vars/all/*.sops.yml
+
+# Ignorar colecciones descargadas
+collections/
+
+# Ignorar roles externos
+external_roles/

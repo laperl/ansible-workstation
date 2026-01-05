@@ -1,0 +1,10 @@
+---
+veracrypt_pkg_ext: "rpm"
+veracrypt_dep_packages: [gnupg2, ca-certificates, xz, fuse3]
+
+# Estructura de URL para RPM (ajustar según el mirror oficial de VeraCrypt)
+veracrypt_os_series: "{{ ansible_facts['distribution_major_version'] }}"
+# Placeholder para lógica RPM
+veracrypt_deb_url: "https://www.veracrypt.fr/en/Downloads.html"
+veracrypt_sig_url: "{{ veracrypt_deb_url }}.sig"
+veracrypt_pgp_key_url: "https://www.idrix.fr/VeraCrypt/VeraCrypt_PGP_public_key.asc"

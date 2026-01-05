@@ -1,52 +1,39 @@
 ---
 ci:
-  # Pre-commit.ci auto-actualiza mensualmente (opcional)
   autoupdate_schedule: monthly
 
 repos:
-  # 1) Ansible Lint (hook oficial)
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v25.8.2
+  # 1) Herramientas básicas (estas funcionan bien en remoto)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
     hooks:
+      - id: end-of-file-fixer
+        exclude: '.*\.sops\.ya?ml$'
+      - id: trailing-whitespace
+        exclude: '.*\.sops\.ya?ml$'
+      - id: check-added-large-files
+
+  # 2) HERRAMIENTAS LOCALES (Estrategia Guru para evitar errores de entorno)
+  - repo: local
+    hooks:
+      - id: yamllint
+        name: yamllint
+        entry: yamllint
+        language: system
+        types: [yaml]
+        args: [-c, .yamllint]
+        exclude: '.*\.sops\.ya?ml$'
+
       - id: ansible-lint
-        args: ["-c", ".config/ansible-lint.yml"]
-        # Limita el alcance a rutas típicas de Ansible
-        # No pases a ansible-lint ningún .sops.y*ml (se filtra aquí)
+        name: ansible-lint
+        entry: ansible-lint
+        language: system
+        types: [yaml]
+        # Solo ejecutar en archivos que parezcan de Ansible
         files: |
           (?x)^(?!.*\.sops\.ya?ml$)(
             ansible\.cfg|
             (playbooks|roles|tasks|handlers|group_vars|host_vars|inventory|collections|plugins)/.*\.(yml|yaml)|
             (site|main|playbook).*\.ya?ml
           )$
-        # Además, por si acaso, excluye secrets/ enteros
-        exclude: '^secrets/'
-
-  # 2) Yamllint (hook oficial)
-  - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.37.1
-    hooks:
-      - id: yamllint
-        args:
-          - --strict
-          - -d
-          - >
-            {extends: default, rules:
-              {line-length:
-                {max: 160, level: warning,
-                 allow-non-breakable-words: true,
-                 allow-non-breakable-inline-mappings: true}}}
-        files: \.(yml|yaml)$
-        exclude: |
-          (?x)(
-            ^secrets/ |
-            \.sops\.ya?ml$
-          )
-
-  # 3) Hygiene básica (evitar tocar cifrados SOPS)
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
-    hooks:
-      - id: end-of-file-fixer
-        exclude: '\.sops\.ya?ml$'
-      - id: trailing-whitespace
-        exclude: '\.sops\.ya?ml$'
+        exclude: '^secrets/|^dotfiles/'

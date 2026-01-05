@@ -24,7 +24,7 @@ security: ## ufw/fail2ban/sshd endurecido (DEV NO USAR)
 exfat: ## Configura/actualiza el punto de montaje exFAT (fstab + automount)
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t exfat
 
-veracrypt: ## Instala/usa VeraCrypt; depende de exfat (la dependencia la tiene en cuenta ansible
+veracrypt: ## Instala/usa VeraCrypt; depende de exfat (la dependencia la tiene en cuenta ansible)
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t veracrypt
 
 dns: ## Instala DNS DoT (DNS over TLS)

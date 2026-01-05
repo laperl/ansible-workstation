@@ -1,0 +1,18 @@
+---
+- name: "AVISO DE SEGURIDAD Y MANTENIMIENTO"
+  ansible.builtin.debug:
+    msg:
+      - "================================================================"
+      - "      🔐 VERACRYPT INSTALADO / ACTUALIZADO CORRECTAMENTE"
+      - "================================================================"
+      - "Versión instalada: {{ veracrypt_version }}"
+      - ""
+      - "Para recibir alertas de seguridad y nuevas versiones:"
+      - "1. Ve a: {{ veracrypt_github_url }}"
+      - "2. Pulsa en 'Watch' -> 'Custom' -> Activa 'Releases'."
+      - "3. Asegúrate de tener configurado tu email en GitHub."
+      - ""
+      - "Si recibes un aviso de nueva versión, actualiza el valor de"
+      - "'veracrypt_version' en tu fichero de defaults y ejecuta:"
+      - "ansible-playbook site.yml -t veracrypt_install"
+      - "================================================================"

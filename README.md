@@ -21,7 +21,7 @@ Todo lo utilizado (Ansible, Stow, SOPS, TPM, Podman) es **gratis**.
 
 ### Prerrequisitos
 
-Instalar pops como indico en el archivo: `docs/sops_uso.md`
+Instalar sops como indico en el archivo: `docs/sops_uso.md`
 
 ```bash
 # 1) Clona este repo en tu $HOME

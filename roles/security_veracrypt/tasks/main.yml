@@ -1,16 +1,18 @@
 ---
-# ROLE: security_veracrypt (Opción A: VeraCrypt CLI)
-
-- name: Instalar VeraCrypt verificado (PGP)
-  ansible.builtin.import_tasks: install.yml
+# 1. Cargar variables: quitamos 'always' y ponemos el tag del rol
+- name: "Cargar variables de la arquitectura de la distro"
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_facts['os_family'] }}.yml"
+    - "Debian.yml"
   tags: [veracrypt, veracrypt_install]
 
-- name: Crear directorios de montaje (descifrado)
-  ansible.builtin.import_tasks: dirs.yml
-  tags: [veracrypt, veracrypt_dirs]
+# 2. Instalación
+- name: "Iniciar proceso de instalación"
+  ansible.builtin.import_tasks: install.yml
+  tags: [veracrypt_install]
 
-# Opcional: wrapper mínimo /usr/local/bin/vc
-- name: Instalar wrapper CLI opcional
-  ansible.builtin.import_tasks: wrapper.yml
-  when: veracrypt_install_wrapper | default(false)
-  tags: [veracrypt, veracrypt_wrapper]
+# 3. Banner: solo se muestra si invocamos el rol o la instalación
+- name: "Mostrar instrucciones de mantenimiento"
+  ansible.builtin.import_tasks: banner.yml
+  tags: [veracrypt, veracrypt_install]

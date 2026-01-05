@@ -1,94 +1,57 @@
 ---
-- name: Paquetes base
-  ansible.builtin.apt:
-    name:
-      - gnupg
-      - gpg-agent
-      - ca-certificates
-      - xz-utils
-      - fuse3
-    state: present
-    update_cache: true
-    cache_valid_time: 3600
+- name: "Gestión Segura de VeraCrypt"
   become: true
+  block:
+    - name: "Asegurar dependencias del sistema"
+      ansible.builtin.apt:
+        name: "{{ veracrypt_dep_packages }}"
+        state: present
+        update_cache: true
 
-- name: Caché de descargas
-  ansible.builtin.file:
-    path: "{{ veracrypt_cache }}"
-    state: directory
-    mode: '0755'
-  become: true
+    - name: "Crear directorio temporal para GPG (Permisos 0700)"
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: .vc_gpg
+      register: _tmp_gpg_dir
 
-- name: Descargar clave PGP oficial (ID 0x680D16DE)
-  ansible.builtin.get_url:
-    url: "{{ veracrypt_pgp_key_url }}"
-    dest: "{{ veracrypt_cache }}/veracrypt_pubkey.asc"
-    mode: '0644'
-  become: true
+    - name: "Cambiar permisos del directorio temporal"
+      ansible.builtin.file:
+        path: "{{ _tmp_gpg_dir.path }}"
+        mode: '0700'
+        owner: root
 
-- name: Importar clave en keyring aislado
-  ansible.builtin.command:
-    argv:
-      - gpg
-      - --no-default-keyring
-      - --keyring
-      - "{{ veracrypt_cache }}/vc.gpg"
-      - --import
-      - "{{ veracrypt_cache }}/veracrypt_pubkey.asc"
+    - name: "Descargar Clave PGP, Paquete y Firma"
+      ansible.builtin.get_url:
+        url: "{{ item.url }}"
+        dest: "{{ item.dest }}"
+        mode: '0644'
+      loop:
+        - {url: "{{ veracrypt_pgp_key_url }}", dest: "{{ _tmp_gpg_dir.path }}/pubkey.asc"}
+        - {url: "{{ veracrypt_deb_url }}", dest: "{{ _tmp_gpg_dir.path }}/veracrypt.{{ veracrypt_pkg_ext }}"}
+        - {url: "{{ veracrypt_sig_url }}", dest: "{{ _tmp_gpg_dir.path }}/veracrypt.{{ veracrypt_pkg_ext }}.sig"}
+
+    - name: "Importar clave y verificar firma PGP"
+      ansible.builtin.shell: |
+        set -o pipefail
+        gpg --no-default-keyring --keyring {{ _tmp_gpg_dir.path }}/check.gpg --import {{ _tmp_gpg_dir.path }}/pubkey.asc
+        gpg --no-default-keyring --keyring {{ _tmp_gpg_dir.path }}/check.gpg --verify {{ _tmp_gpg_dir.path }}/veracrypt.{{ veracrypt_pkg_ext }}.sig {{ _tmp_gpg_dir.path }}/veracrypt.{{ veracrypt_pkg_ext }}
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: "Instalar paquete verificado"
+      ansible.builtin.apt:
+        deb: "{{ _tmp_gpg_dir.path }}/veracrypt.{{ veracrypt_pkg_ext }}"
+
+  always:
+    - name: "Limpieza profunda: Eliminar keyring y binarios temporales"
+      ansible.builtin.file:
+        path: "{{ _tmp_gpg_dir.path }}"
+        state: absent
+      when: _tmp_gpg_dir.path is defined
+
+- name: "Verificación Post-Instalación"
+  ansible.builtin.command: veracrypt --version
+  register: _vc_check
   changed_when: false
-  become: true
-
-- name: Definir rutas de paquete y firma
-  ansible.builtin.set_fact:
-    security_veracrypt_vc_pkg: >-
-      {{
-        veracrypt_cache ~ '/veracrypt-' ~ veracrypt_version ~
-        '-Ubuntu-' ~ veracrypt_series ~ '-' ~ veracrypt_arch ~ '.deb'
-      }}
-    security_veracrypt_sig: >-
-      {{
-        veracrypt_cache ~ '/veracrypt-' ~ veracrypt_version ~
-        '-Ubuntu-' ~ veracrypt_series ~ '-' ~ veracrypt_arch ~ '.deb.sig'
-      }}
-
-- name: Descargar .deb oficial
-  ansible.builtin.get_url:
-    url: "{{ veracrypt_deb_url }}"
-    dest: "{{ security_veracrypt_vc_pkg }}"
-    mode: '0644'
-  become: true
-
-- name: Descargar firma PGP (.sig)
-  ansible.builtin.get_url:
-    url: "{{ veracrypt_sig_url }}"
-    dest: "{{ security_veracrypt_sig }}"
-    mode: '0644'
-  become: true
-
-- name: Verificar firma PGP del .deb
-  ansible.builtin.command:
-    argv:
-      - gpg
-      - --no-default-keyring
-      - --keyring
-      - "{{ veracrypt_cache }}/vc.gpg"
-      - --verify
-      - "{{ security_veracrypt_sig }}"
-      - "{{ security_veracrypt_vc_pkg }}"
-  register: security_veracrypt_gpg_verify
-  changed_when: false
-  failed_when: security_veracrypt_gpg_verify.rc != 0
-  become: true
-
-- name: Comprobar versión instalada
-  ansible.builtin.command: veracrypt --text --version
-  register: security_veracrypt_ver
-  failed_when: false
-  changed_when: false
-
-- name: Instalar .deb si la versión difiere
-  ansible.builtin.apt:
-    deb: "{{ security_veracrypt_vc_pkg }}"
-  when: security_veracrypt_ver.rc != 0 or
-    (veracrypt_version not in security_veracrypt_ver.stdout)
-  become: true
+  failed_when: veracrypt_version not in _vc_check.stdout

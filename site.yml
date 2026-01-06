@@ -24,6 +24,9 @@
     - {role: security_veracrypt, tags: ['veracrypt']}
     - {role: network_dnsdot, tags: ['network', 'dns', 'dot']}
     - {role: network_wg_protonvpn, tags: ['network', 'wg', 'vpn', 'protonvpn']}
+    # Productividad (Nuevo bloque)
+    # Lo ponemos aquí porque es una "User App", igual que multimedia
+    - {role: productivity_logseq, tags: ['logseq', 'productivity']}
     - {role: mm_media, tags: ['media', 'containers', 'pipeviewer']}
     # Personas role: deploy digital identities and browsers
     # - {role: personas, tags: ['personas']}

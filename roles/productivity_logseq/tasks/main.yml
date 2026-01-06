@@ -1,0 +1,38 @@
+---
+- name: "Asegurar directorios de destino"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ workstation_facts_user }}"
+    group: "{{ workstation_facts_user }}"
+  loop:
+    - "{{ logseq_install_dir }}"
+    - "{{ logseq_icon_dir }}"
+
+- name: "Descargar Logseq AppImage {{ logseq_version }}"
+  ansible.builtin.get_url:
+    url: "{{ logseq_appimage_url }}"
+    dest: "{{ logseq_install_dir }}/Logseq.AppImage"
+    mode: '0755'
+    owner: "{{ workstation_facts_user }}"
+    group: "{{ workstation_facts_user }}"
+
+- name: "Descargar Icono de Logseq"
+  ansible.builtin.get_url:
+    url: "{{ logseq_icon_url }}"
+    dest: "{{ logseq_icon_dir }}/logseq.png"
+    mode: '0644'
+
+- name: "Crear acceso directo .desktop"
+  ansible.builtin.template:
+    src: logseq.desktop.j2
+    dest: "{{ workstation_facts_home }}/.local/share/applications/logseq.desktop"
+    mode: '0644'
+    owner: "{{ workstation_facts_user }}"
+
+# Tarea extra opcional: Refrescar caché de iconos de forma segura
+- name: "Actualizar base de datos de escritorio"
+  ansible.builtin.command: update-desktop-database {{ workstation_facts_home }}/.local/share/applications
+  changed_when: false
+  failed_when: false

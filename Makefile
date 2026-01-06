@@ -41,3 +41,6 @@ pipeviewer: ## Instala "pipeviewer", "yt-dlp" dentro de podman para ver videos d
 
 persona: ## Instala navegadors per les diferents persones digitals.
 	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t personas
+
+logseq: ## Instala Logseq (AppImage + Icono + Desktop Entry)
+	ansible-playbook -i inventories/local/hosts.yml site.yml -K -t logseq

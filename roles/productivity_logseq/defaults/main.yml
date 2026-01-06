@@ -1,0 +1,11 @@
+---
+# Versión deseada (cambia esto cuando salga una nueva)
+logseq_version: "0.10.15"
+
+# Directorio de instalación (Usuario local para no ensuciar /opt si es monopuesto)
+logseq_install_dir: "{{ workstation_facts_home }}/.local/bin"
+logseq_icon_dir: "{{ workstation_facts_home }}/.local/share/icons"
+
+# URLs de descarga construidas dinámicamente
+logseq_appimage_url: "https://github.com/logseq/logseq/releases/download/{{ logseq_version }}/Logseq-linux-x64-{{ logseq_version }}.AppImage"
+logseq_icon_url: "https://raw.githubusercontent.com/logseq/logseq/master/resources/icons/logseq.png"

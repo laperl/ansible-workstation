@@ -51,7 +51,7 @@
       when: _tmp_gpg_dir.path is defined
 
 - name: "Verificación Post-Instalación"
-  ansible.builtin.command: veracrypt --version
+  ansible.builtin.command: veracrypt -t --version
   register: _vc_check
   changed_when: false
   failed_when: veracrypt_version not in _vc_check.stdout
